@@ -7,14 +7,14 @@ fn repository() {
     let root = Path::new("../../cases");
     let report = verify(root).expect("golden suite clean");
     assert_eq!(report.domains, 8);
-    assert_eq!(report.passed, 11);
-    assert_eq!(report.rejected, 46);
+    assert_eq!(report.passed, 16);
+    assert_eq!(report.rejected, 63);
 }
 
 #[test]
 fn laws() {
     let sample =
-        "route := (code: u16) switch code {\n    200 => Status.ok\n    _ => Status.fault\n}\n";
+        "route := (code: u16) bucket code {\n    200 => Status.ok\n    _ => Status.fault\n}\n";
     let program = check(sample).expect("valid control sample");
     assert_eq!(render(&program), sample);
     assert!(scan("packet := Packet { tag: 1 }\n").is_ok());
@@ -53,6 +53,13 @@ fn laws() {
             .unwrap_err()
             .code,
         Code::Bucket
+    );
+    assert_eq!(scan("_ := 1\n").unwrap_err().code, Code::Discard);
+    assert_eq!(
+        scan("toggle := (active: bool) switch active {\n    true => Mode.live\n    _ => Mode.idle\n}\n")
+            .unwrap_err()
+            .code,
+        Code::Discard
     );
 }
 

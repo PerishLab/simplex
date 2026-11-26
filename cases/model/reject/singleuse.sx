@@ -1,0 +1,4 @@
+widen := (port: u16) -> u64 {
+    base := port.into<u64>()
+    base + 1000
+}

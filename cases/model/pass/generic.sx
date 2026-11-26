@@ -1,0 +1,26 @@
+Encoder := interface {
+    size: (self: Self) -> usize
+}
+
+Packet := struct {
+    length: usize
+}
+
+Packet : Encoder
+
+Packet.size := (self: Packet) -> usize {
+    self.length
+}
+
+Pair<A, B> := struct {
+    first: A
+    second: B
+}
+
+footprint := <T: Encoder>(first: T, second: T) -> usize {
+    first.size() + second.size()
+}
+
+total := (left: Packet, right: Packet) -> usize {
+    footprint(left, right)
+}

@@ -149,6 +149,9 @@ impl<'a> Stream<'a> {
     }
 
     pub(crate) fn spec(&mut self) -> Result<Spec, Finding> {
+        if self.peek().is_some_and(|tok| tok.symbol("(")) {
+            return Err(self.peek().unwrap().fault(Code::Tuple));
+        }
         if self.peek().is_some_and(|tok| tok.word("fn")) {
             return self.signature();
         }
@@ -193,14 +196,20 @@ impl<'a> Stream<'a> {
         self.expect("(")?;
         let mut list = Vec::new();
         while self.peek().is_some_and(|tok| !tok.symbol(")")) {
-            let name = self.word()?.text.clone();
+            let word = self.word()?;
+            let (name, line, column) = (word.text.clone(), word.line, word.column);
             let annotation = if self.peek().is_some_and(|tok| tok.symbol(":")) {
                 self.bump();
                 Some(self.spec()?)
             } else {
                 None
             };
-            list.push(Parameter { name, annotation });
+            list.push(Parameter {
+                name,
+                annotation,
+                line,
+                column,
+            });
             if self.peek().is_some_and(|tok| tok.symbol(",")) {
                 self.bump();
             } else {

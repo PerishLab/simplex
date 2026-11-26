@@ -1,0 +1,4 @@
+grade := (value: i64) bucket {
+    value < 0 => 0
+    _ => 1
+}

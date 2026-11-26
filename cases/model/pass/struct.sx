@@ -1,0 +1,16 @@
+Span := struct {
+    offset: usize
+    length: usize
+}
+
+Span.zero := () -> Span {
+    Span { offset: 0, length: 0 }
+}
+
+Span.end := (self: Span) -> usize {
+    self.offset + self.length
+}
+
+Span.empty := (self: Span) -> bool {
+    self.length == 0
+}

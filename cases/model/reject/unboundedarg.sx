@@ -1,0 +1,15 @@
+Encoder := interface {
+    size: (self: Self) -> usize
+}
+
+Raw := struct {
+    length: usize
+}
+
+footprint := <T: Encoder>(item: T) -> usize {
+    item.size()
+}
+
+check := (raw: Raw) -> usize {
+    footprint(raw)
+}

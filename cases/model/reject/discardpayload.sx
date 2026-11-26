@@ -1,0 +1,4 @@
+read := (out: Outcome) switch out {
+    Outcome.ok(bytes) => bytes.len()
+    Outcome.err(_) => 0
+}

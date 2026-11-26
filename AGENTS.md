@@ -33,8 +33,8 @@ compile-time evaluation (`comptime`), non-LLVM native code generator and
 
 ## Current baseline
 
-The repository currently includes `M0 · Harness`, `M1 · Surface (lexical)` and
-`M1 · Surface (control)`:
+The repository currently includes `M0 · Harness`, `M1 · Surface (lexical,
+control)` and `M2 · Model (model)`:
 
 - the governed Rust workspace (`crates/lib` and `crates/cli`, with dependency
   direction `cli -> lib`), `plumb.toml` and `ectropy.toml`;
@@ -42,15 +42,19 @@ The repository currently includes `M0 · Harness`, `M1 · Surface (lexical)` and
   `control`, `model`, `module`, `borrow`, `async`, `comptime`, `dylib`), each
   anchored by a `suite.toml` manifest mapping `reject/*.sx` specimens to exact
   refusal codes so `.sx` files remain completely comment-free; and
-- the reviewed `lexical` (6 `pass`, 25 `reject`) and `control` (5 `pass`, 21
-  `reject`) golden suites paired with zero-backtracking lexical/AST parsing,
-  `bucket` + `switch` + first-class callable control laws (`no-if`, `no-while`,
-  `no-return`, bounded depth `<= 4`), and byte-idempotent canonical formatting
-  in `crates/lib` and `simplex {check,format}`.
+- the reviewed `lexical` (6 `pass`, 25 `reject`), `control` (5 `pass`, 21
+  `reject`) and `model` (5 `pass`, 17 `reject`) golden suites paired with
+  zero-backtracking lexical/AST parsing, `bucket` + `switch` control laws,
+  unified `:=` `struct`/`enum`/`interface`/alias modeling, flat `Type : Interface`
+  conformance, generic bound checking, local type inference with zero implicit
+  coercion, global single-meaning `_` (only `bucket`'s fallback arm), `uses >= 2`
+  local binding hygiene and byte-idempotent canonical formatting in
+  `crates/lib` and `simplex {check,format}`.
 
-Type/enum resolution, borrow checking, `comptime`, `dylib` ABI checks and
-native code generation are not yet implemented; target language principles live
-in [DESIGN.md](DESIGN.md) and native Issues (`#6`–`#11`).
+Multi-file module graph resolution, borrow checking, `async`, `comptime`,
+`dylib` ABI checks and native code generation are not yet implemented; target
+language principles live in [DESIGN.md](DESIGN.md) and native Issues
+(`#7`–`#11`).
 
 ## Core objects
 

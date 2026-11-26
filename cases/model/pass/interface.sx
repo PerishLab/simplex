@@ -1,0 +1,14 @@
+Encoder := interface {
+    size: (self: Self) -> usize
+}
+
+Packet := struct {
+    tag: u16
+    length: usize
+}
+
+Packet : Encoder
+
+Packet.size := (self: Packet) -> usize {
+    self.length + 2
+}

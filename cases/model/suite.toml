@@ -1,1 +1,69 @@
 domain = "model"
+
+[[reject]]
+file = "bucketint.sx"
+code = "model.bucket"
+
+[[reject]]
+file = "coercion.sx"
+code = "model.coercion"
+
+[[reject]]
+file = "discardbind.sx"
+code = "model.discard"
+
+[[reject]]
+file = "discardparam.sx"
+code = "model.discard"
+
+[[reject]]
+file = "discardpayload.sx"
+code = "model.discard"
+
+[[reject]]
+file = "extends.sx"
+code = "model.inheritance"
+
+[[reject]]
+file = "implblock.sx"
+code = "model.declaration"
+
+[[reject]]
+file = "legacystruct.sx"
+code = "model.declaration"
+
+[[reject]]
+file = "missingmethod.sx"
+code = "model.conformance"
+
+[[reject]]
+file = "mixedmath.sx"
+code = "model.coercion"
+
+[[reject]]
+file = "singleuse.sx"
+code = "model.binding"
+
+[[reject]]
+file = "superstruct.sx"
+code = "model.inheritance"
+
+[[reject]]
+file = "switchstruct.sx"
+code = "model.switch"
+
+[[reject]]
+file = "switchwild.sx"
+code = "model.discard"
+
+[[reject]]
+file = "tuple.sx"
+code = "model.tuple"
+
+[[reject]]
+file = "unboundedarg.sx"
+code = "model.conformance"
+
+[[reject]]
+file = "unusedparam.sx"
+code = "model.binding"

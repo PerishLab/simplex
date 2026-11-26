@@ -19,8 +19,8 @@ impl Inspector {
         }
         if let [.., prev, tail] = list
             && let Statement::Bind(binding) = &prev.statement
-            && let Statement::Evaluate(Expression::Word(word)) = &tail.statement
-            && binding.name == *word
+            && let Statement::Evaluate(Expression::Word { text, .. }) = &tail.statement
+            && binding.name == *text
         {
             return Err(Finding {
                 code: Code::Binding,
@@ -34,6 +34,12 @@ impl Inspector {
     fn statement(&self, stmt: &Statement, depth: usize) -> Result<(), Finding> {
         match stmt {
             Statement::Bind(binding) => self.expression(&binding.value, depth),
+            Statement::Method(method) => self.expression(&method.value, depth),
+            Statement::Struct(_)
+            | Statement::Enum(_)
+            | Statement::Interface(_)
+            | Statement::Alias(_)
+            | Statement::Conform { .. } => Ok(()),
             Statement::Assign { target, value, .. } => {
                 self.expression(target, depth)?;
                 self.expression(value, depth)
@@ -157,7 +163,7 @@ impl Inspector {
 
     fn expression(&self, expr: &Expression, depth: usize) -> Result<(), Finding> {
         match expr {
-            Expression::Word(_)
+            Expression::Word { .. }
             | Expression::Number(_)
             | Expression::Text(_)
             | Expression::Byte(_) => Ok(()),

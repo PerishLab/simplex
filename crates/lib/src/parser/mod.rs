@@ -1,4 +1,5 @@
 mod control;
+mod decl;
 mod expr;
 mod postfix;
 
@@ -109,6 +110,13 @@ impl<'a> Stream<'a> {
         if token.word("fn") && self.ahead(1).is_some_and(|next| next.kind == Kind::Word) {
             return Err(token.fault(Code::Signature));
         }
+        if matches!(
+            token.text.as_str(),
+            "struct" | "enum" | "interface" | "impl" | "type"
+        ) && token.kind == Kind::Word
+        {
+            return Err(token.fault(Code::Model));
+        }
         if token.word("var") {
             return self.variable();
         }
@@ -118,6 +126,12 @@ impl<'a> Stream<'a> {
         if token.word("loop") {
             let start = self.bump().unwrap();
             return Ok(Statement::Loop(self.repetition(start)?));
+        }
+        if token.kind == Kind::Word
+            && capitalized(&token.text)
+            && let Some(model) = self.nominal()?
+        {
+            return Ok(model);
         }
         if token.kind == Kind::Word && self.declaration() {
             return Ok(Statement::Bind(self.binding()?));
@@ -148,7 +162,7 @@ impl<'a> Stream<'a> {
         Ok(Statement::Bind(binding))
     }
 
-    fn binding(&mut self) -> Result<Binding, Finding> {
+    pub(crate) fn binding(&mut self) -> Result<Binding, Finding> {
         let name = self.word()?.text.clone();
         if self.peek().is_some_and(|tok| tok.symbol(":=")) {
             self.bump();
@@ -183,6 +197,12 @@ impl<'a> Stream<'a> {
         let body = self.block()?;
         Ok(Statement::For { item, source, body })
     }
+}
+
+pub(crate) fn capitalized(text: &str) -> bool {
+    text.chars()
+        .next()
+        .is_some_and(|ch| ch.is_ascii_uppercase())
 }
 
 fn assignment(text: &str) -> bool {

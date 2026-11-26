@@ -1,0 +1,31 @@
+Status := enum {
+    ok
+    accepted
+    missing
+    fault
+}
+
+Slice := enum {
+    closed
+    bounds
+    span(usize)
+}
+
+Result<T, E> := enum {
+    ok(T)
+    err(E)
+}
+
+Outcome := Result<u64, Status>
+
+measure := (closed: bool, offset: usize, limit: usize) bucket {
+    closed => Slice.closed
+    offset > limit => Slice.bounds
+    _ => Slice.span(limit - offset)
+}
+
+width := (slice: Slice) switch slice {
+    Slice.closed => 0
+    Slice.bounds => 0
+    Slice.span(size) => size
+}

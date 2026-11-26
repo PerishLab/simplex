@@ -1,0 +1,3 @@
+pick := (used: u64, dead: u64) -> u64 {
+    used + 1
+}

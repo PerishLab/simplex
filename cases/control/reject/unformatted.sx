@@ -1,4 +1,4 @@
-route := (code: u16) switch code {
-  200 => Status.ok
-  _ => Status.fault
+toggle := (active: bool) switch active {
+  true => Mode.live
+  false => Mode.idle
 }

@@ -1,0 +1,9 @@
+Span := struct {
+    length: usize
+}
+
+Packet := struct {
+    length: usize
+}
+
+Packet : Span

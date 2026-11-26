@@ -1,6 +1,6 @@
-use super::Stream;
+use super::{Stream, capitalized};
 use crate::code::{Code, Finding, Kind, Token};
-use crate::tree::{Body, Expression};
+use crate::tree::{Body, Expression, Generic};
 
 impl<'a> Stream<'a> {
     pub(crate) fn expression(&mut self, minimum: u8) -> Result<Expression, Finding> {
@@ -10,7 +10,8 @@ impl<'a> Stream<'a> {
             if power < minimum {
                 break;
             }
-            self.bump();
+            let op = self.bump().unwrap();
+            let (line, column) = (op.line, op.column);
             let wrapped = self.newlines() > 0;
             let right = self.expression(power + 1)?;
             left = Expression::Binary {
@@ -18,6 +19,8 @@ impl<'a> Stream<'a> {
                 operator,
                 right: Box::new(right),
                 wrapped,
+                line,
+                column,
             };
         }
         if self.peek().is_some_and(|tok| tok.symbol("?")) {
@@ -68,9 +71,13 @@ impl<'a> Stream<'a> {
             let start = self.bump().unwrap();
             return Ok(Expression::Loop(Box::new(self.repetition(start)?)));
         }
+        if tok.symbol("<") {
+            let generics = self.clauses()?;
+            return self.function(generics);
+        }
         if tok.symbol("(") {
             return if self.callable() {
-                self.function()
+                self.function(Vec::new())
             } else {
                 self.grouped()
             };
@@ -99,7 +106,11 @@ impl<'a> Stream<'a> {
                 if capitalized(&tok.text) && self.record() {
                     self.literal(tok.text.clone())
                 } else {
-                    Ok(Expression::Word(tok.text.clone()))
+                    Ok(Expression::Word {
+                        text: tok.text.clone(),
+                        line: tok.line,
+                        column: tok.column,
+                    })
                 }
             }
             _ => Err(tok.fault(Code::Syntax)),
@@ -113,7 +124,7 @@ impl<'a> Stream<'a> {
         Ok(Expression::Group(Box::new(inner)))
     }
 
-    fn function(&mut self) -> Result<Expression, Finding> {
+    fn function(&mut self, generics: Vec<Generic>) -> Result<Expression, Finding> {
         let inputs = self.parameters()?;
         let output = if self.peek().is_some_and(|tok| tok.symbol("->")) {
             self.bump();
@@ -141,6 +152,7 @@ impl<'a> Stream<'a> {
             _ => return Err(next.fault(Code::Inline)),
         };
         Ok(Expression::Function {
+            generics,
             inputs,
             output,
             body,
@@ -188,10 +200,4 @@ fn trigger(after: &Token) -> bool {
         (after.kind, after.text.as_str()),
         (Kind::Symbol, "{" | "->" | "=>") | (Kind::Word, "switch" | "bucket" | "loop" | "for")
     )
-}
-
-fn capitalized(text: &str) -> bool {
-    text.chars()
-        .next()
-        .is_some_and(|ch| ch.is_ascii_uppercase())
 }

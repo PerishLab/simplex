@@ -1,4 +1,4 @@
-route := (code: u16) switch code {
+route := (code: u16) bucket code {
     200 => Status.ok
     201 | 204 => Status.accepted
     404 => Status.missing

@@ -1,4 +1,7 @@
-use crate::classify::{digit, single, span};
+mod classify;
+pub mod surface;
+
+use self::classify::{digit, single, span};
 use crate::code::{Code, Finding, Kind, Token};
 
 #[derive(Clone, Copy)]
