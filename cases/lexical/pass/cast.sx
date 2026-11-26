@@ -1,0 +1,5 @@
+port: u16 = 8080
+wide := port.into<u64>()
+low := wide.as<u8>()
+within := low < 128
+table: Map<Text, List<u64>> = empty()

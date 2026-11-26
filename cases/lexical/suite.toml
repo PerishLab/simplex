@@ -1,6 +1,22 @@
 domain = "lexical"
 
 [[reject]]
+file = "acronym.sx"
+code = "lexical.singleword"
+
+[[reject]]
+file = "ascast.sx"
+code = "lexical.cast"
+
+[[reject]]
+file = "blockcomment.sx"
+code = "lexical.comment"
+
+[[reject]]
+file = "boolcast.sx"
+code = "lexical.cast"
+
+[[reject]]
 file = "camel.sx"
 code = "lexical.singleword"
 
@@ -13,5 +29,73 @@ file = "compound.sx"
 code = "lexical.singleword"
 
 [[reject]]
+file = "hash.sx"
+code = "lexical.character"
+
+[[reject]]
 file = "if.sx"
 code = "control.if"
+
+[[reject]]
+file = "increment.sx"
+code = "lexical.assignment"
+
+[[reject]]
+file = "leadingchain.sx"
+code = "lexical.continuation"
+
+[[reject]]
+file = "leadingdot.sx"
+code = "lexical.literal"
+
+[[reject]]
+file = "leadingop.sx"
+code = "lexical.continuation"
+
+[[reject]]
+file = "let.sx"
+code = "lexical.declaration"
+
+[[reject]]
+file = "literalcast.sx"
+code = "lexical.cast"
+
+[[reject]]
+file = "literaldot.sx"
+code = "lexical.literal"
+
+[[reject]]
+file = "mut.sx"
+code = "lexical.declaration"
+
+[[reject]]
+file = "pascal.sx"
+code = "lexical.singleword"
+
+[[reject]]
+file = "semicolon.sx"
+code = "lexical.semicolon"
+
+[[reject]]
+file = "separator.sx"
+code = "lexical.literal"
+
+[[reject]]
+file = "spacedgeneric.sx"
+code = "lexical.spacing"
+
+[[reject]]
+file = "suffix.sx"
+code = "lexical.literal"
+
+[[reject]]
+file = "tightcmp.sx"
+code = "lexical.spacing"
+
+[[reject]]
+file = "trailingdot.sx"
+code = "lexical.literal"
+
+[[reject]]
+file = "turbofish.sx"
+code = "lexical.cast"

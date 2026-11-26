@@ -1,69 +1,26 @@
-use serde::{Deserialize, Serialize};
-use std::fmt;
+use crate::classify::{digit, single, span};
+use crate::code::{Code, Finding};
+use crate::token::{Kind, Token};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
-pub enum Code {
-    #[serde(rename = "lexical.comment")]
-    Comment,
-    #[serde(rename = "lexical.singleword")]
-    Singleword,
-    #[serde(rename = "control.if")]
-    If,
-    #[serde(rename = "lexical.literal")]
-    Literal,
-    #[serde(rename = "lexical.character")]
-    Character,
+#[derive(Clone, Copy)]
+struct Anchor {
+    start: usize,
+    line: usize,
+    column: usize,
+    spaced: bool,
 }
 
-impl Code {
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Comment => "lexical.comment",
-            Self::Singleword => "lexical.singleword",
-            Self::If => "control.if",
-            Self::Literal => "lexical.literal",
-            Self::Character => "lexical.character",
+impl Anchor {
+    fn fault(self, code: Code) -> Finding {
+        Finding {
+            code,
+            line: self.line,
+            column: self.column,
         }
     }
 }
 
-impl fmt::Display for Code {
-    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
-        out.write_str(self.label())
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Kind {
-    Word,
-    Number,
-    Text,
-    Symbol,
-    Newline,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Token {
-    pub kind: Kind,
-    pub text: String,
-    pub line: usize,
-    pub column: usize,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Finding {
-    pub code: Code,
-    pub line: usize,
-    pub column: usize,
-}
-
-impl fmt::Display for Finding {
-    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(out, "{}:{}: {}", self.line, self.column, self.code)
-    }
-}
-
-pub fn scan(source: &str) -> Result<Vec<Token>, Finding> {
+pub fn tokenize(source: &str) -> Result<Vec<Token>, Finding> {
     Cursor::new(source).collect()
 }
 
@@ -73,6 +30,7 @@ struct Cursor<'a> {
     offset: usize,
     line: usize,
     column: usize,
+    gap: bool,
 }
 
 impl<'a> Cursor<'a> {
@@ -83,6 +41,26 @@ impl<'a> Cursor<'a> {
             offset: 0,
             line: 1,
             column: 1,
+            gap: true,
+        }
+    }
+
+    fn mark(&self) -> Anchor {
+        Anchor {
+            start: self.offset,
+            line: self.line,
+            column: self.column,
+            spaced: self.gap,
+        }
+    }
+
+    fn emit(&self, mark: Anchor, kind: Kind) -> Token {
+        Token {
+            kind,
+            text: self.source[mark.start..self.offset].into(),
+            line: mark.line,
+            column: mark.column,
+            spaced: mark.spaced,
         }
     }
 
@@ -92,6 +70,10 @@ impl<'a> Cursor<'a> {
 
     fn next(&self) -> Option<u8> {
         self.bytes.get(self.offset + 1).copied()
+    }
+
+    fn third(&self) -> Option<u8> {
+        self.bytes.get(self.offset + 2).copied()
     }
 
     fn bump(&mut self) -> Option<u8> {
@@ -106,188 +88,196 @@ impl<'a> Cursor<'a> {
         Some(byte)
     }
 
-    fn fault(&self, code: Code, line: usize, column: usize) -> Finding {
-        Finding { code, line, column }
-    }
-
     fn collect(&mut self) -> Result<Vec<Token>, Finding> {
         let mut tokens = Vec::new();
         while let Some(byte) = self.peek() {
             match byte {
                 b' ' | b'\t' => {
                     self.bump();
+                    self.gap = true;
                 }
-                b'\r' => {
-                    return Err(self.fault(Code::Character, self.line, self.column));
-                }
+                b'\r' => return Err(self.mark().fault(Code::Character)),
+                b';' => return Err(self.mark().fault(Code::Semicolon)),
                 b'\n' => {
-                    let (line, column) = (self.line, self.column);
+                    let mark = self.mark();
                     self.bump();
-                    tokens.push(Token {
-                        kind: Kind::Newline,
-                        text: "\n".into(),
-                        line,
-                        column,
-                    });
+                    self.gap = true;
+                    tokens.push(self.emit(mark, Kind::Newline));
                 }
                 b'/' if matches!(self.next(), Some(b'/' | b'*')) => {
-                    return Err(self.fault(Code::Comment, self.line, self.column));
+                    return Err(self.mark().fault(Code::Comment));
                 }
-                _ => tokens.push(self.step()?),
+                _ => {
+                    let token = self.step()?;
+                    self.gap = false;
+                    tokens.push(token);
+                }
             }
         }
         Ok(tokens)
     }
 
     fn step(&mut self) -> Result<Token, Finding> {
-        let byte = self.peek().unwrap_or_default();
-        match byte {
+        match self.peek().unwrap_or_default() {
             b'a'..=b'z' | b'A'..=b'Z' | b'_' => self.word(),
             b'0'..=b'9' => self.number(),
-            b'"' => self.literal(),
+            b'"' => self.text(),
+            b'\'' => self.byte(),
             _ => self.symbol(),
         }
     }
 
     fn word(&mut self) -> Result<Token, Finding> {
-        let (start, line, column) = (self.offset, self.line, self.column);
+        let mark = self.mark();
+        while self
+            .peek()
+            .is_some_and(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        {
+            self.bump();
+        }
+        let slice = &self.source[mark.start..self.offset];
+        match slice {
+            "if" => Err(mark.fault(Code::If)),
+            "let" | "mut" => Err(mark.fault(Code::Declaration)),
+            _ if !single(slice) => Err(mark.fault(Code::Singleword)),
+            _ => Ok(self.emit(mark, Kind::Word)),
+        }
+    }
+
+    fn number(&mut self) -> Result<Token, Finding> {
+        let mark = self.mark();
+        if self.peek() == Some(b'0') {
+            match self.next() {
+                Some(b'x') => return self.prefixed(mark, 16),
+                Some(b'b') => return self.prefixed(mark, 2),
+                Some(b'o') => return self.prefixed(mark, 8),
+                Some(byte) if byte.is_ascii_alphanumeric() || byte == b'_' => {
+                    return Err(mark.fault(Code::Literal));
+                }
+                _ => {}
+            }
+        }
+        self.decimal(mark)?;
+        Ok(self.emit(mark, Kind::Number))
+    }
+
+    fn prefixed(&mut self, mark: Anchor, radix: u32) -> Result<Token, Finding> {
+        self.bump();
+        self.bump();
+        let mut count = 0usize;
         while let Some(byte) = self.peek() {
-            if byte.is_ascii_alphanumeric() || byte == b'_' {
+            if digit(byte, radix) {
                 self.bump();
+                count += 1;
+            } else if byte.is_ascii_alphanumeric() || byte == b'_' {
+                return Err(mark.fault(Code::Literal));
             } else {
                 break;
             }
         }
-        let text = &self.source[start..self.offset];
-        if text == "if" {
-            return Err(self.fault(Code::If, line, column));
+        if count == 0 || (self.peek() == Some(b'.') && self.next() != Some(b'.')) {
+            return Err(mark.fault(Code::Literal));
         }
-        if !single(text) {
-            return Err(self.fault(Code::Singleword, line, column));
-        }
-        Ok(Token {
-            kind: Kind::Word,
-            text: text.into(),
-            line,
-            column,
-        })
+        Ok(self.emit(mark, Kind::Number))
     }
 
-    fn number(&mut self) -> Result<Token, Finding> {
-        let (start, line, column) = (self.offset, self.line, self.column);
+    fn decimal(&mut self, mark: Anchor) -> Result<(), Finding> {
+        self.digits(mark)?;
+        if self.peek() == Some(b'.') && self.next() != Some(b'.') {
+            self.bump();
+            if !self.peek().is_some_and(|byte| byte.is_ascii_digit()) {
+                return Err(mark.fault(Code::Literal));
+            }
+            self.digits(mark)?;
+            if self.peek() == Some(b'.') && self.next() != Some(b'.') {
+                return Err(mark.fault(Code::Literal));
+            }
+        }
+        Ok(())
+    }
+
+    fn digits(&mut self, mark: Anchor) -> Result<(), Finding> {
         while let Some(byte) = self.peek() {
             if byte.is_ascii_digit() {
                 self.bump();
             } else if byte.is_ascii_alphabetic() || byte == b'_' {
-                return Err(self.fault(Code::Literal, line, column));
+                return Err(mark.fault(Code::Literal));
             } else {
                 break;
             }
         }
-        Ok(Token {
-            kind: Kind::Number,
-            text: self.source[start..self.offset].into(),
-            line,
-            column,
-        })
+        Ok(())
     }
 
-    fn literal(&mut self) -> Result<Token, Finding> {
-        let (start, line, column) = (self.offset, self.line, self.column);
+    fn text(&mut self) -> Result<Token, Finding> {
+        let mark = self.mark();
         self.bump();
         while let Some(byte) = self.peek() {
-            if matches!(byte, b'\n' | b'\r') {
-                return Err(self.fault(Code::Literal, line, column));
-            }
-            self.bump();
-            if byte == b'\\' && self.bump().is_none() {
-                return Err(self.fault(Code::Literal, line, column));
-            }
-            if byte == b'"' {
-                return Ok(Token {
-                    kind: Kind::Text,
-                    text: self.source[start..self.offset].into(),
-                    line,
-                    column,
-                });
+            match byte {
+                b'\n' | b'\r' => return Err(mark.fault(Code::Literal)),
+                b'\\' => {
+                    self.bump();
+                    self.escape(mark)?;
+                }
+                b'"' => {
+                    self.bump();
+                    return Ok(self.emit(mark, Kind::Text));
+                }
+                _ => {
+                    self.bump();
+                }
             }
         }
-        Err(self.fault(Code::Literal, line, column))
+        Err(mark.fault(Code::Literal))
+    }
+
+    fn byte(&mut self) -> Result<Token, Finding> {
+        let mark = self.mark();
+        self.bump();
+        match self.peek() {
+            None | Some(b'\'' | b'\n' | b'\r') => return Err(mark.fault(Code::Literal)),
+            Some(b'\\') => {
+                self.bump();
+                self.escape(mark)?;
+            }
+            Some(_) => {
+                self.bump();
+            }
+        }
+        if self.peek() != Some(b'\'') {
+            return Err(mark.fault(Code::Literal));
+        }
+        self.bump();
+        Ok(self.emit(mark, Kind::Byte))
+    }
+
+    fn escape(&mut self, mark: Anchor) -> Result<(), Finding> {
+        match self.bump() {
+            Some(b'n' | b'r' | b't' | b'0' | b'\\' | b'"' | b'\'') => Ok(()),
+            _ => Err(mark.fault(Code::Literal)),
+        }
     }
 
     fn symbol(&mut self) -> Result<Token, Finding> {
-        let (start, line, column) = (self.offset, self.line, self.column);
-        let first = self.peek().unwrap_or_default();
-        let second = self.next().unwrap_or_default();
-        let pair = matches!(
-            (first, second),
-            (b':', b'=')
-                | (b'=', b'>')
-                | (b'-', b'>')
-                | (b'=', b'=')
-                | (b'!', b'=')
-                | (b'<', b'=')
-                | (b'>', b'=')
-                | (b'.', b'.')
-                | (b':', b':')
+        let mark = self.mark();
+        let (first, second, third) = (
+            self.peek().unwrap_or_default(),
+            self.next().unwrap_or_default(),
+            self.third().unwrap_or_default(),
         );
-        if pair {
-            self.bump();
-            self.bump();
-        } else if punctuation(first) {
-            self.bump();
-        } else {
-            return Err(self.fault(Code::Character, line, column));
+        if matches!((first, second), (b'+', b'+') | (b'-', b'-')) {
+            return Err(mark.fault(Code::Assignment));
         }
-        Ok(Token {
-            kind: Kind::Symbol,
-            text: self.source[start..self.offset].into(),
-            line,
-            column,
-        })
-    }
-}
-
-fn single(text: &str) -> bool {
-    if text == "_" {
-        return true;
-    }
-    if text.contains('_') {
-        return false;
-    }
-    let mut lowered = false;
-    for (index, ch) in text.chars().enumerate() {
-        if ch.is_ascii_lowercase() {
-            lowered = true;
-        } else if ch.is_ascii_uppercase() && (index > 0 || lowered) {
-            return false;
+        if first == b'.' && second.is_ascii_digit() {
+            return Err(mark.fault(Code::Literal));
         }
+        let width = span(first, second, third, mark.spaced);
+        if width == 0 {
+            return Err(mark.fault(Code::Character));
+        }
+        for _ in 0..width {
+            self.bump();
+        }
+        Ok(self.emit(mark, Kind::Symbol))
     }
-    true
-}
-
-fn punctuation(byte: u8) -> bool {
-    matches!(
-        byte,
-        b'(' | b')'
-            | b'['
-            | b']'
-            | b'{'
-            | b'}'
-            | b','
-            | b'.'
-            | b':'
-            | b'='
-            | b'+'
-            | b'-'
-            | b'*'
-            | b'/'
-            | b'%'
-            | b'&'
-            | b'|'
-            | b'!'
-            | b'<'
-            | b'>'
-            | b'?'
-    )
 }

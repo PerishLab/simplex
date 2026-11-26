@@ -33,7 +33,7 @@ compile-time evaluation (`comptime`), non-LLVM native code generator and
 
 ## Current baseline
 
-This `M0` baseline establishes:
+The repository currently includes `M0 · Harness` and `M1 · Surface (lexical)`:
 
 - the governed Rust workspace (`crates/lib` and `crates/cli`, with dependency
   direction `cli -> lib`), `plumb.toml` and `ectropy.toml`;
@@ -41,9 +41,10 @@ This `M0` baseline establishes:
   `control`, `model`, `module`, `borrow`, `async`, `comptime`, `dylib`), each
   anchored by a `suite.toml` manifest mapping `reject/*.sx` specimens to exact
   refusal codes so `.sx` files remain completely comment-free; and
-- the initial zero-backtracking lexical probe scanner and `simplex check`
-  runner verifying `lexical.comment`, `lexical.singleword`, `control.if`,
-  `lexical.literal` and `lexical.character` across `cases/*`.
+- the reviewed `cases/lexical/{pass,reject}/*.sx` baseline (6 `pass`, 25
+  `reject`) paired with deterministic zero-backtracking lexical and surface
+  verification (`lexical.{comment,character,semicolon,singleword,literal,declaration,assignment,cast,spacing,continuation}`
+  and `control.if`) in `crates/lib` and `simplex check`.
 
 Full parser, canonical formatter, type/borrow checking, `comptime`, `dylib` ABI
 checks and native code generation are not yet implemented; target language

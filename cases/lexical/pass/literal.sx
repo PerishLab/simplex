@@ -1,0 +1,8 @@
+zero := 0
+mask: u32 = 0xff
+bits: u8 = 0b10100101
+mode: u16 = 0o755
+ratio: f64 = 3.14159
+ready := true
+newline: u8 = '\n'
+name := "simplex\n"

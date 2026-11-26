@@ -1,4 +1,5 @@
-use crate::lexer::{Code, Finding, scan};
+use crate::code::{Code, Finding};
+use crate::scan;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
