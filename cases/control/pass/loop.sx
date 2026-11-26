@@ -1,0 +1,12 @@
+seek := (source: Source) loop switch source.poll() {
+    Poll.ready(frame) => break frame
+    Poll.pending => source.wait()
+}
+
+drain := (items: Slice<u64>) -> u64 {
+    var total: u64 = 0
+    for item in items {
+        total += item
+    }
+    total
+}

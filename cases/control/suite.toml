@@ -1,1 +1,85 @@
 domain = "control"
+
+[[reject]]
+file = "armcomma.sx"
+code = "control.arm"
+
+[[reject]]
+file = "arrow.sx"
+code = "control.inline"
+
+[[reject]]
+file = "bareswitch.sx"
+code = "control.switch"
+
+[[reject]]
+file = "catch.sx"
+code = "control.exception"
+
+[[reject]]
+file = "deep.sx"
+code = "control.depth"
+
+[[reject]]
+file = "earlywild.sx"
+code = "control.arm"
+
+[[reject]]
+file = "else.sx"
+code = "control.if"
+
+[[reject]]
+file = "headrecord.sx"
+code = "control.switch"
+
+[[reject]]
+file = "if.sx"
+code = "control.if"
+
+[[reject]]
+file = "inlineexpr.sx"
+code = "control.inline"
+
+[[reject]]
+file = "inlinefor.sx"
+code = "control.inline"
+
+[[reject]]
+file = "legacy.sx"
+code = "control.declaration"
+
+[[reject]]
+file = "passthrough.sx"
+code = "control.binding"
+
+[[reject]]
+file = "return.sx"
+code = "control.return"
+
+[[reject]]
+file = "switchrange.sx"
+code = "control.switch"
+
+[[reject]]
+file = "ternary.sx"
+code = "control.ternary"
+
+[[reject]]
+file = "throw.sx"
+code = "control.exception"
+
+[[reject]]
+file = "try.sx"
+code = "control.exception"
+
+[[reject]]
+file = "unbounded.sx"
+code = "control.bucket"
+
+[[reject]]
+file = "unformatted.sx"
+code = "control.format"
+
+[[reject]]
+file = "while.sx"
+code = "control.while"

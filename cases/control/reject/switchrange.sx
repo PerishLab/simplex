@@ -1,0 +1,4 @@
+route := (code: u16) switch code {
+    200..300 => Status.ok
+    _ => Status.fault
+}

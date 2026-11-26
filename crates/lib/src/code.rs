@@ -25,6 +25,32 @@ pub enum Code {
     Continuation,
     #[serde(rename = "control.if")]
     If,
+    #[serde(rename = "control.while")]
+    While,
+    #[serde(rename = "control.return")]
+    Return,
+    #[serde(rename = "control.exception")]
+    Exception,
+    #[serde(rename = "control.ternary")]
+    Ternary,
+    #[serde(rename = "control.declaration")]
+    Signature,
+    #[serde(rename = "control.inline")]
+    Inline,
+    #[serde(rename = "control.switch")]
+    Switch,
+    #[serde(rename = "control.bucket")]
+    Bucket,
+    #[serde(rename = "control.arm")]
+    Arm,
+    #[serde(rename = "control.binding")]
+    Binding,
+    #[serde(rename = "control.depth")]
+    Depth,
+    #[serde(rename = "control.syntax")]
+    Syntax,
+    #[serde(rename = "control.format")]
+    Format,
 }
 
 impl Code {
@@ -41,6 +67,19 @@ impl Code {
             Self::Spacing => "lexical.spacing",
             Self::Continuation => "lexical.continuation",
             Self::If => "control.if",
+            Self::While => "control.while",
+            Self::Return => "control.return",
+            Self::Exception => "control.exception",
+            Self::Ternary => "control.ternary",
+            Self::Signature => "control.declaration",
+            Self::Inline => "control.inline",
+            Self::Switch => "control.switch",
+            Self::Bucket => "control.bucket",
+            Self::Arm => "control.arm",
+            Self::Binding => "control.binding",
+            Self::Depth => "control.depth",
+            Self::Syntax => "control.syntax",
+            Self::Format => "control.format",
         }
     }
 }
@@ -61,5 +100,51 @@ pub struct Finding {
 impl fmt::Display for Finding {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(out, "{}:{}: {}", self.line, self.column, self.code)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    Word,
+    Number,
+    Text,
+    Byte,
+    Symbol,
+    Newline,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Token {
+    pub kind: Kind,
+    pub text: String,
+    pub line: usize,
+    pub column: usize,
+    pub spaced: bool,
+}
+
+impl Token {
+    pub fn fault(&self, code: Code) -> Finding {
+        Finding {
+            code,
+            line: self.line,
+            column: self.column,
+        }
+    }
+
+    pub fn atom(&self) -> bool {
+        matches!(self.kind, Kind::Number | Kind::Text | Kind::Byte)
+            || (self.kind == Kind::Word && matches!(self.text.as_str(), "true" | "false"))
+    }
+
+    pub fn glued(&self) -> bool {
+        !self.spaced && !matches!(self.kind, Kind::Symbol | Kind::Newline)
+    }
+
+    pub fn word(&self, expected: &str) -> bool {
+        self.kind == Kind::Word && self.text == expected
+    }
+
+    pub fn symbol(&self, expected: &str) -> bool {
+        self.kind == Kind::Symbol && self.text == expected
     }
 }

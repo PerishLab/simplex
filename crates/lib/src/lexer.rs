@@ -1,6 +1,5 @@
 use crate::classify::{digit, single, span};
-use crate::code::{Code, Finding};
-use crate::token::{Kind, Token};
+use crate::code::{Code, Finding, Kind, Token};
 
 #[derive(Clone, Copy)]
 struct Anchor {
@@ -137,7 +136,10 @@ impl<'a> Cursor<'a> {
         }
         let slice = &self.source[mark.start..self.offset];
         match slice {
-            "if" => Err(mark.fault(Code::If)),
+            "if" | "else" => Err(mark.fault(Code::If)),
+            "while" => Err(mark.fault(Code::While)),
+            "return" => Err(mark.fault(Code::Return)),
+            "try" | "catch" | "throw" => Err(mark.fault(Code::Exception)),
             "let" | "mut" => Err(mark.fault(Code::Declaration)),
             _ if !single(slice) => Err(mark.fault(Code::Singleword)),
             _ => Ok(self.emit(mark, Kind::Word)),

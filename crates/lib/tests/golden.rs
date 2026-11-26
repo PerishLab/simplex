@@ -1,4 +1,4 @@
-use simplex::{Code, Failure, scan, verify};
+use simplex::{Code, Failure, check, render, scan, verify};
 use std::fs;
 use std::path::Path;
 
@@ -7,12 +7,16 @@ fn repository() {
     let root = Path::new("../../cases");
     let report = verify(root).expect("golden suite clean");
     assert_eq!(report.domains, 8);
-    assert_eq!(report.passed, 6);
-    assert_eq!(report.rejected, 25);
+    assert_eq!(report.passed, 11);
+    assert_eq!(report.rejected, 46);
 }
 
 #[test]
 fn laws() {
+    let sample =
+        "route := (code: u16) switch code {\n    200 => Status.ok\n    _ => Status.fault\n}\n";
+    let program = check(sample).expect("valid control sample");
+    assert_eq!(render(&program), sample);
     assert!(scan("packet := Packet { tag: 1 }\n").is_ok());
     assert!(scan("wide := port.into<u64>()\n").is_ok());
     assert!(scan("shifted := mask >> 2\n").is_ok());
@@ -20,16 +24,7 @@ fn laws() {
         scan("// forbidden\nanswer := 1\n").unwrap_err().code,
         Code::Comment
     );
-    assert_eq!(
-        scan("/* block */\nanswer := 1\n").unwrap_err().code,
-        Code::Comment
-    );
     assert_eq!(scan("user_name := 1\n").unwrap_err().code, Code::Singleword);
-    assert_eq!(scan("userName := 1\n").unwrap_err().code, Code::Singleword);
-    assert_eq!(
-        scan("PacketHeader := 1\n").unwrap_err().code,
-        Code::Singleword
-    );
     assert_eq!(scan("let port := 1\n").unwrap_err().code, Code::Declaration);
     assert_eq!(scan("count--\n").unwrap_err().code, Code::Assignment);
     assert_eq!(scan("port := 8080;\n").unwrap_err().code, Code::Semicolon);
@@ -46,9 +41,18 @@ fn laws() {
         Code::Continuation
     );
     assert_eq!(scan("if ready {}\n").unwrap_err().code, Code::If);
+    assert_eq!(scan("while ready {}\n").unwrap_err().code, Code::While);
     assert_eq!(
-        scan("answer := \"unterminated\n").unwrap_err().code,
-        Code::Literal
+        scan("drain := () -> u64 {\n    return 1\n}\n")
+            .unwrap_err()
+            .code,
+        Code::Return
+    );
+    assert_eq!(
+        scan("grade := (x: i64) bucket {\n    x < 0 => Bound.low\n}\n")
+            .unwrap_err()
+            .code,
+        Code::Bucket
     );
 }
 

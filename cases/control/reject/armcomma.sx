@@ -1,0 +1,4 @@
+toggle := (active: bool) switch active {
+    true => Mode.live,
+    false => Mode.idle
+}

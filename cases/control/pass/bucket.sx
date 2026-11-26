@@ -1,0 +1,21 @@
+grade := (code: u16) bucket code {
+    200..300 => Class.success
+    400..500 => Class.client
+    _ => Class.server
+}
+
+bound := (value: i64, low: i64, high: i64) bucket {
+    value < low => Bound.below
+    value > high => Bound.above
+    _ => Bound.within
+}
+
+clamp := (value: i64, low: i64, high: i64) switch bound(value, low, high) {
+    Bound.below => low
+    Bound.above => high
+    Bound.within => value
+}
+
+normalize := (items: List<i64>) -> List<i64> {
+    items.map((item) { clamp(item, 0, 100) })
+}

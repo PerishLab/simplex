@@ -33,7 +33,8 @@ compile-time evaluation (`comptime`), non-LLVM native code generator and
 
 ## Current baseline
 
-The repository currently includes `M0 · Harness` and `M1 · Surface (lexical)`:
+The repository currently includes `M0 · Harness`, `M1 · Surface (lexical)` and
+`M1 · Surface (control)`:
 
 - the governed Rust workspace (`crates/lib` and `crates/cli`, with dependency
   direction `cli -> lib`), `plumb.toml` and `ectropy.toml`;
@@ -41,14 +42,15 @@ The repository currently includes `M0 · Harness` and `M1 · Surface (lexical)`:
   `control`, `model`, `module`, `borrow`, `async`, `comptime`, `dylib`), each
   anchored by a `suite.toml` manifest mapping `reject/*.sx` specimens to exact
   refusal codes so `.sx` files remain completely comment-free; and
-- the reviewed `cases/lexical/{pass,reject}/*.sx` baseline (6 `pass`, 25
-  `reject`) paired with deterministic zero-backtracking lexical and surface
-  verification (`lexical.{comment,character,semicolon,singleword,literal,declaration,assignment,cast,spacing,continuation}`
-  and `control.if`) in `crates/lib` and `simplex check`.
+- the reviewed `lexical` (6 `pass`, 25 `reject`) and `control` (5 `pass`, 21
+  `reject`) golden suites paired with zero-backtracking lexical/AST parsing,
+  `bucket` + `switch` + first-class callable control laws (`no-if`, `no-while`,
+  `no-return`, bounded depth `<= 4`), and byte-idempotent canonical formatting
+  in `crates/lib` and `simplex {check,format}`.
 
-Full parser, canonical formatter, type/borrow checking, `comptime`, `dylib` ABI
-checks and native code generation are not yet implemented; target language
-principles live in [DESIGN.md](DESIGN.md) and native Issues (`#4`–`#11`).
+Type/enum resolution, borrow checking, `comptime`, `dylib` ABI checks and
+native code generation are not yet implemented; target language principles live
+in [DESIGN.md](DESIGN.md) and native Issues (`#6`–`#11`).
 
 ## Core objects
 

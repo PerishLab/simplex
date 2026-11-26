@@ -1,0 +1,1 @@
+double := (value: i64) value + value

@@ -1,0 +1,5 @@
+read := (source: Source) {
+    try {
+        source.poll()
+    }
+}

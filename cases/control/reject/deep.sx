@@ -1,0 +1,11 @@
+nest := (items: Slice<u64>) {
+    for a in items {
+        for b in items {
+            for c in items {
+                for d in items {
+                    a
+                }
+            }
+        }
+    }
+}
