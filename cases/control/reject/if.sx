@@ -1,0 +1,5 @@
+route := (ready: bool) -> u64 {
+    if ready {
+        1
+    }
+}

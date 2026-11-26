@@ -1,0 +1,5 @@
+slice := (closed: bool, offset: usize, limit: usize) bucket {
+    closed => Slice.closed
+    offset > limit => Slice.bounds
+    _ => Slice.span(limit - offset)
+}

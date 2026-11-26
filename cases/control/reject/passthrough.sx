@@ -1,0 +1,4 @@
+compute := (value: u64) -> u64 {
+    out := value + 1
+    out
+}

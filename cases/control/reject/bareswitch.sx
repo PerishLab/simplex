@@ -1,0 +1,4 @@
+clamp := (value: i64) switch {
+    value < 0 => 0
+    _ => value
+}

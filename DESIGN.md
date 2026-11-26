@@ -39,9 +39,14 @@ accumulate.
 - **`no comment`**: The `.sx` grammar has no line or block comments. Intent that
   cannot be expressed through names, types, exhaustive structure and tests
   belongs in governed design or Issue records, never inline excuses.
-- **`no-if, only-switch`**: There is no `if` / `else if` construct. Every
-  conditional branch is expressed as a flat, symmetric, exhaustive `switch`
-  dispatch, eliminating ad-hoc boolean ladders and hidden fallthroughs.
+- **`bucket` + `switch` and first-class functions (`no-if`, `no-while`, `no-return`)**:
+  There is no `if`, `while` or `return` construct. Open conditions and
+  continuous ranges are partitioned into discrete `enum` states through
+  `bucket`, while `switch` dispatches over `enum`, `bool` and direct scalar
+  literals without fallthrough. Functions are first-class bound values:
+  `(params) <switch | bucket | loop>` expresses short `inline` mappings with
+  non-`void` inferred results, and `(params) [-> R] { ... }` expresses block
+  `fn` contracts.
 - **Bounded topology and canonical form**: Compiler limits cap block nesting
   depth and parameter count, refusing anonymous large tuples across boundaries,
   paired with one canonical formatting representation per syntax tree.

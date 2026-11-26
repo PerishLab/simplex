@@ -1,0 +1,3 @@
+fn route(code: u16) -> Status {
+    Status.ok
+}

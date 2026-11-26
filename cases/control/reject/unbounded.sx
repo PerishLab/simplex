@@ -1,0 +1,3 @@
+grade := (value: i64) bucket {
+    value < 0 => Bound.below
+}

@@ -1,0 +1,1 @@
+pick := ready ? 1 : 0

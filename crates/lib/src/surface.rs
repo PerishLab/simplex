@@ -1,5 +1,4 @@
-use crate::code::{Code, Finding};
-use crate::token::{Kind, Token};
+use crate::code::{Code, Finding, Kind, Token};
 
 pub fn check(tokens: &[Token]) -> Result<(), Finding> {
     let surface = Surface { tokens };
