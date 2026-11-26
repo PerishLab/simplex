@@ -59,6 +59,8 @@ impl Printer {
 
     fn statement(&mut self, stmt: &Statement) {
         match stmt {
+            Statement::Import(item) => self.imported(item),
+            Statement::Extern(item) => self.external(item),
             Statement::Bind(binding) => self.binding(binding),
             Statement::Struct(item) => self.structure(item),
             Statement::Enum(item) => self.enumeration(item),
@@ -90,6 +92,9 @@ impl Printer {
     }
 
     fn binding(&mut self, binding: &Binding) {
+        if binding.public {
+            self.out.push_str("pub ");
+        }
         if binding.mutable {
             self.out.push_str("var ");
         }
@@ -106,7 +111,15 @@ impl Printer {
 
     pub(crate) fn spec(&mut self, spec: &Spec) {
         match spec {
-            Spec::Named { name, arguments } => {
+            Spec::Named {
+                module,
+                name,
+                arguments,
+            } => {
+                if let Some(prefix) = module {
+                    self.out.push_str(prefix);
+                    self.out.push('.');
+                }
                 self.out.push_str(name);
                 if !arguments.is_empty() {
                     self.out.push('<');

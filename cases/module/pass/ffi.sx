@@ -1,0 +1,5 @@
+poll := extern "c" "epoll_wait" fn(handle: i32, events: usize, limit: i32, timeout: i32) -> i32
+
+pub wait := (handle: i32, events: usize) -> i32 {
+    poll(handle, events, 64, 0)
+}

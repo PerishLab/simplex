@@ -69,6 +69,22 @@ pub enum Code {
     Coercion,
     #[serde(rename = "model.binding")]
     Usage,
+    #[serde(rename = "module.barrel")]
+    Barrel,
+    #[serde(rename = "module.reexport")]
+    Reexport,
+    #[serde(rename = "module.import")]
+    Import,
+    #[serde(rename = "module.cycle")]
+    Cycle,
+    #[serde(rename = "module.visibility")]
+    Visibility,
+    #[serde(rename = "module.extern")]
+    Extern,
+    #[serde(rename = "module.arity")]
+    Arity,
+    #[serde(rename = "module.path")]
+    Path,
 }
 
 impl Code {
@@ -107,6 +123,14 @@ impl Code {
             Self::Scrutinee => "model.switch",
             Self::Coercion => "model.coercion",
             Self::Usage => "model.binding",
+            Self::Barrel => "module.barrel",
+            Self::Reexport => "module.reexport",
+            Self::Import => "module.import",
+            Self::Cycle => "module.cycle",
+            Self::Visibility => "module.visibility",
+            Self::Extern => "module.extern",
+            Self::Arity => "module.arity",
+            Self::Path => "module.path",
         }
     }
 }

@@ -1,0 +1,8 @@
+pub Span := struct {
+    pub offset: usize
+    pub length: usize
+}
+
+pub end := (target: Span) -> usize {
+    target.offset + target.length
+}

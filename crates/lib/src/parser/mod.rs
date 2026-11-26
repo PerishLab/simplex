@@ -1,6 +1,7 @@
 mod control;
 mod decl;
 mod expr;
+mod imports;
 mod postfix;
 
 use crate::code::{Code, Finding, Kind, Token};
@@ -81,7 +82,7 @@ impl<'a> Stream<'a> {
                 break;
             }
             let (line, column) = (token.line, token.column);
-            let statement = self.statement()?;
+            let statement = self.statement(braced)?;
             items.push(Item {
                 statement,
                 blank,
@@ -103,19 +104,15 @@ impl<'a> Stream<'a> {
         Ok(items)
     }
 
-    fn statement(&mut self) -> Result<Statement, Finding> {
+    fn statement(&mut self, braced: bool) -> Result<Statement, Finding> {
         let Some(token) = self.peek() else {
             return Err(self.fault(Code::Syntax));
         };
-        if token.word("fn") && self.ahead(1).is_some_and(|next| next.kind == Kind::Word) {
-            return Err(token.fault(Code::Signature));
+        if token.word("pub") {
+            return self.exposed(braced);
         }
-        if matches!(
-            token.text.as_str(),
-            "struct" | "enum" | "interface" | "impl" | "type"
-        ) && token.kind == Kind::Word
-        {
-            return Err(token.fault(Code::Model));
+        if let Some(code) = banned(token, self.ahead(1)) {
+            return Err(token.fault(code));
         }
         if token.word("var") {
             return self.variable();
@@ -129,13 +126,37 @@ impl<'a> Stream<'a> {
         }
         if token.kind == Kind::Word
             && capitalized(&token.text)
-            && let Some(model) = self.nominal()?
+            && let Some(model) = self.nominal(false)?
         {
             return Ok(model);
         }
         if token.kind == Kind::Word && self.declaration() {
-            return Ok(Statement::Bind(self.binding()?));
+            return self.declared(false);
         }
+        self.action()
+    }
+
+    fn exposed(&mut self, braced: bool) -> Result<Statement, Finding> {
+        let kw = self.bump().unwrap();
+        if braced || self.peek().is_some_and(|tok| tok.symbol("(")) {
+            return Err(kw.fault(Code::Visibility));
+        }
+        let Some(next) = self.peek() else {
+            return Err(kw.fault(Code::Visibility));
+        };
+        if next.kind == Kind::Word
+            && capitalized(&next.text)
+            && let Some(model) = self.nominal(true)?
+        {
+            return Ok(model);
+        }
+        if next.kind == Kind::Word && self.declaration() {
+            return self.declared(true);
+        }
+        Err(kw.fault(Code::Visibility))
+    }
+
+    fn action(&mut self) -> Result<Statement, Finding> {
         let left = self.expression(0)?;
         if let Some(op) = self.peek().filter(|tok| assignment(&tok.text)) {
             let operator = op.text.clone();
@@ -157,17 +178,18 @@ impl<'a> Stream<'a> {
 
     fn variable(&mut self) -> Result<Statement, Finding> {
         self.bump();
-        let mut binding = self.binding()?;
+        let mut binding = self.binding(false)?;
         binding.mutable = true;
         Ok(Statement::Bind(binding))
     }
 
-    pub(crate) fn binding(&mut self) -> Result<Binding, Finding> {
+    pub(crate) fn binding(&mut self, public: bool) -> Result<Binding, Finding> {
         let name = self.word()?.text.clone();
         if self.peek().is_some_and(|tok| tok.symbol(":=")) {
             self.bump();
             let value = self.expression(0)?;
             return Ok(Binding {
+                public,
                 mutable: false,
                 name,
                 annotation: None,
@@ -179,6 +201,7 @@ impl<'a> Stream<'a> {
         self.expect("=")?;
         let value = self.expression(0)?;
         Ok(Binding {
+            public,
             mutable: false,
             name,
             annotation,
@@ -196,6 +219,19 @@ impl<'a> Stream<'a> {
         let source = self.expression(0)?;
         let body = self.block()?;
         Ok(Statement::For { item, source, body })
+    }
+}
+
+fn banned(token: &Token, second: Option<&Token>) -> Option<Code> {
+    if token.kind != Kind::Word {
+        return None;
+    }
+    match token.text.as_str() {
+        "fn" if second.is_some_and(|next| next.kind == Kind::Word) => Some(Code::Signature),
+        "struct" | "enum" | "interface" | "impl" | "type" => Some(Code::Model),
+        "import" => Some(Code::Import),
+        "extern" => Some(Code::Extern),
+        _ => None,
     }
 }
 

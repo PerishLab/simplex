@@ -1,1 +1,73 @@
 domain = "module"
+
+[[reject]]
+file = "aliasimport.sx"
+code = "module.import"
+
+[[reject]]
+file = "arity.sx"
+code = "module.arity"
+
+[[reject]]
+file = "cyclea.sx"
+code = "module.cycle"
+
+[[reject]]
+file = "cycleb.sx"
+code = "module.cycle"
+
+[[reject]]
+file = "deepchain.sx"
+code = "module.path"
+
+[[reject]]
+file = "doublecolon.sx"
+code = "module.import"
+
+[[reject]]
+file = "externblock.sx"
+code = "module.extern"
+
+[[reject]]
+file = "index.sx"
+code = "module.barrel"
+
+[[reject]]
+file = "localpub.sx"
+code = "module.visibility"
+
+[[reject]]
+file = "mod.sx"
+code = "module.barrel"
+
+[[reject]]
+file = "modstmt.sx"
+code = "module.barrel"
+
+[[reject]]
+file = "privatefield.sx"
+code = "module.visibility"
+
+[[reject]]
+file = "privatefn.sx"
+code = "module.visibility"
+
+[[reject]]
+file = "privateread.sx"
+code = "module.visibility"
+
+[[reject]]
+file = "privatetype.sx"
+code = "module.visibility"
+
+[[reject]]
+file = "pubscope.sx"
+code = "module.visibility"
+
+[[reject]]
+file = "reexport.sx"
+code = "module.reexport"
+
+[[reject]]
+file = "useglob.sx"
+code = "module.import"

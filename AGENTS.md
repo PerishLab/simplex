@@ -34,7 +34,7 @@ compile-time evaluation (`comptime`), non-LLVM native code generator and
 ## Current baseline
 
 The repository currently includes `M0 · Harness`, `M1 · Surface (lexical,
-control)` and `M2 · Model (model)`:
+control)` and `M2 · Model (model, module)`:
 
 - the governed Rust workspace (`crates/lib` and `crates/cli`, with dependency
   direction `cli -> lib`), `plumb.toml` and `ectropy.toml`;
@@ -43,19 +43,22 @@ control)` and `M2 · Model (model)`:
   anchored by a `suite.toml` manifest mapping `reject/*.sx` specimens to exact
   refusal codes so `.sx` files remain completely comment-free; and
 - the reviewed `lexical` (6 `pass`, 25 `reject`), `control` (5 `pass`, 21
-  `reject`) and `model` (5 `pass`, 19 `reject`) golden suites paired with
-  zero-backtracking lexical/AST parsing, `bucket` + `switch` control laws,
-  unified `:=` `struct`/`enum`/`interface`/alias modeling, closed
+  `reject`), `model` (5 `pass`, 19 `reject`) and `module` (3 `pass`, 18
+  `reject`) golden suites paired with zero-backtracking lexical/AST parsing,
+  `bucket` + `switch` control laws, unified `:=`
+  `struct`/`enum`/`interface`/alias/`import`/`extern "c"` modeling, closed
   `Type : Interface { ... }` conformance blocks (forbidding scattered inherent
-  `Type.method` definitions), generic bound checking, local type inference with
-  zero implicit coercion, global single-meaning `_` (only `bucket`'s fallback
-  arm), `uses >= 2` local binding hygiene and byte-idempotent canonical
-  formatting in `crates/lib` and `simplex {check,format}`.
+  `Type.method` definitions), 1:1 file-is-module cycle/visibility graph checks
+  (binary file-private vs `pub`, banning barrels and `pub import` re-exports),
+  compiler arity/depth/chain caps (`param <= 4`, `block <= 4`, `path <= 3`),
+  generic bound checking, local type inference with zero implicit coercion,
+  global single-meaning `_` (only `bucket`'s fallback arm), `uses >= 2` local
+  binding hygiene and byte-idempotent canonical formatting in `crates/lib` and
+  `simplex {check,format}`.
 
-Multi-file module graph resolution, borrow checking, `async`, `comptime`,
-`dylib` ABI checks and native code generation are not yet implemented; target
-language principles live in [DESIGN.md](DESIGN.md) and native Issues
-(`#7`–`#11`).
+Borrow checking, `async`, `comptime`, `dylib` ABI checks and native code
+generation are not yet implemented; target language principles live in
+[DESIGN.md](DESIGN.md) and native Issues (`#8`–`#11`).
 
 ## Core objects
 

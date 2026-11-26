@@ -1,0 +1,5 @@
+packet := import packet
+
+probe := (item: packet.Packet) -> u16 {
+    item.tag
+}

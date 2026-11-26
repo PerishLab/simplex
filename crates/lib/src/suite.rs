@@ -1,5 +1,5 @@
 use crate::code::{Code, Finding};
-use crate::scan;
+use crate::inspect;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -158,7 +158,7 @@ impl<'a> Suite<'a> {
         for file in &files {
             let path = sub.join(file);
             let source = fs::read_to_string(&path).map_err(|_| Failure::Io(path))?;
-            if let Err(finding) = scan(&source) {
+            if let Err(finding) = inspect(Some(file), Some(&sub), &source) {
                 return Err(Failure::Unexpected {
                     domain: self.name.into(),
                     file: file.clone(),
@@ -182,7 +182,7 @@ impl<'a> Suite<'a> {
             };
             let path = sub.join(file);
             let source = fs::read_to_string(&path).map_err(|_| Failure::Io(path))?;
-            self.judge(file, expected, &source)?;
+            self.judge(file, &sub, expected, &source)?;
         }
         Ok(disk.len())
     }
@@ -213,8 +213,8 @@ impl<'a> Suite<'a> {
         Ok(declared)
     }
 
-    fn judge(&self, file: &str, expected: Code, source: &str) -> Result<(), Failure> {
-        match scan(source) {
+    fn judge(&self, file: &str, sub: &Path, expected: Code, source: &str) -> Result<(), Failure> {
+        match inspect(Some(file), Some(sub), source) {
             Ok(_) => Err(Failure::Accepted {
                 domain: self.name.into(),
                 file: file.into(),

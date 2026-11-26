@@ -43,7 +43,10 @@ impl<'a> Scope<'a> {
 
     pub(crate) fn from(&self, spec: &Spec) -> Type {
         match spec {
-            Spec::Named { name, .. } => {
+            Spec::Named { module, name, .. } => {
+                if let Some(prefix) = module {
+                    return Type::Nominal(format!("{prefix}.{name}"));
+                }
                 if self.generics.contains_key(name) {
                     return Type::Generic(name.clone());
                 }

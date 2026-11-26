@@ -73,6 +73,16 @@ impl Table {
                     self.functions.insert(binding.name.clone(), sig);
                 }
             }
+            Statement::Extern(ext) => {
+                self.functions.insert(
+                    ext.name.clone(),
+                    Signature {
+                        generics: Vec::new(),
+                        inputs: ext.inputs.iter().map(|p| p.annotation.clone()).collect(),
+                        output: ext.output.clone(),
+                    },
+                );
+            }
             _ => {}
         }
     }

@@ -24,6 +24,9 @@ impl<'a> Surface<'a> {
             if token.kind == Kind::Symbol && token.text == "::" && self.symbol(index + 1, "<") {
                 return Err(token.fault(Code::Cast));
             }
+            if token.kind == Kind::Symbol && token.text == "::" {
+                return Err(token.fault(Code::Import));
+            }
             if self.symbol(index, ".") && self.converter(index + 1) && self.literal(index) {
                 return Err(token.fault(Code::Cast));
             }
