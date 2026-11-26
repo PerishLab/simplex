@@ -1,5 +1,8 @@
+mod borrow;
+mod call;
 mod check;
 mod count;
+mod flow;
 mod infer;
 mod usage;
 
@@ -14,7 +17,8 @@ pub fn check(program: &Program) -> Result<(), Finding> {
     usage::verify(program)?;
     let table = Table::build(program)?;
     table.conformances()?;
-    check::verify(&table, program)
+    check::verify(&table, program)?;
+    table.verify(program)
 }
 
 pub(crate) struct Signature {
@@ -41,6 +45,7 @@ pub(crate) struct Table {
     pub(crate) methods: BTreeMap<(String, String), Signature>,
     pub(crate) claims: Vec<Claim>,
     pub(crate) satisfied: BTreeSet<(String, String)>,
+    pub(crate) copies: BTreeSet<String>,
 }
 
 impl Table {
@@ -99,6 +104,9 @@ impl Table {
                     .insert((entry.subject.clone(), method.name.clone()), sig);
             }
         }
+        if name == "Copy" {
+            self.copies.insert(entry.subject.clone());
+        }
         self.claims.push(Claim {
             subject: entry.subject.clone(),
             contract: name.clone(),
@@ -112,6 +120,16 @@ impl Table {
     fn conformances(&self) -> Result<(), Finding> {
         for claim in &self.claims {
             let target = self.resolve(&claim.contract);
+            if target == "Copy" {
+                if !claim.methods.is_empty() {
+                    return Err(Finding {
+                        code: Code::Conformance,
+                        line: claim.line,
+                        column: claim.column,
+                    });
+                }
+                continue;
+            }
             if self.structs.contains_key(&target) || self.enums.contains_key(&target) {
                 return Err(Finding {
                     code: Code::Inheritance,

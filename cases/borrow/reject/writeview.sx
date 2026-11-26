@@ -1,0 +1,7 @@
+Frame := struct {
+    offset: usize
+}
+
+tamper := (frame: &Frame) {
+    frame.offset += 1
+}

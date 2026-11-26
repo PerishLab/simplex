@@ -96,6 +96,14 @@ impl<'a> Counter<'a> {
             Expression::Number(_) | Expression::Text(_) | Expression::Byte(_) => 0,
             Expression::Group(inner) | Expression::Try(inner) => self.expression(inner),
             Expression::Unary { operand, .. } => self.expression(operand),
+            Expression::Borrow { target, .. } => self.expression(target),
+            Expression::Index {
+                base, start, limit, ..
+            } => {
+                self.expression(base)
+                    + self.expression(start)
+                    + limit.as_deref().map_or(0, |end| self.expression(end))
+            }
             Expression::Binary { left, right, .. } => {
                 self.expression(left) + self.expression(right)
             }

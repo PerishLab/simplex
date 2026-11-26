@@ -85,6 +85,20 @@ pub enum Code {
     Arity,
     #[serde(rename = "module.path")]
     Path,
+    #[serde(rename = "borrow.moved")]
+    Moved,
+    #[serde(rename = "borrow.mutable")]
+    Mutable,
+    #[serde(rename = "borrow.conflict")]
+    Conflict,
+    #[serde(rename = "borrow.escape")]
+    Escape,
+    #[serde(rename = "borrow.storage")]
+    Storage,
+    #[serde(rename = "borrow.lifetime")]
+    Lifetime,
+    #[serde(rename = "borrow.copy")]
+    Replica,
 }
 
 impl Code {
@@ -131,6 +145,13 @@ impl Code {
             Self::Extern => "module.extern",
             Self::Arity => "module.arity",
             Self::Path => "module.path",
+            Self::Moved => "borrow.moved",
+            Self::Mutable => "borrow.mutable",
+            Self::Conflict => "borrow.conflict",
+            Self::Escape => "borrow.escape",
+            Self::Storage => "borrow.storage",
+            Self::Lifetime => "borrow.lifetime",
+            Self::Replica => "borrow.copy",
         }
     }
 }

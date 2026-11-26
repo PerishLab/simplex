@@ -1,0 +1,17 @@
+Closer := interface {
+    close: (self: Self) -> usize
+}
+
+Socket := struct {
+    port: u16
+}
+
+Socket : Closer {
+    close: (self: Socket) -> usize {
+        self.port.into<usize>()
+    }
+}
+
+shutdown := (socket: Socket) -> usize {
+    socket.close() + socket.close()
+}

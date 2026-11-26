@@ -1,0 +1,7 @@
+Header := struct {
+    offset: usize
+}
+
+keep := (header: &'a Header) -> &'a Header {
+    header
+}

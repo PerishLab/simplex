@@ -82,6 +82,27 @@ impl<'a> Stream<'a> {
                 self.grouped()
             };
         }
+        if tok.symbol("&") {
+            let amp = self.bump().unwrap();
+            let (line, column) = (amp.line, amp.column);
+            let mutable = if self
+                .peek()
+                .is_some_and(|next| next.word("var") && !next.spaced)
+            {
+                self.bump();
+                true
+            } else {
+                false
+            };
+            let operand = self.prefix()?;
+            let target = self.postfix(operand)?;
+            return Ok(Expression::Borrow {
+                mutable,
+                target: Box::new(target),
+                line,
+                column,
+            });
+        }
         if tok.symbol("-") || tok.symbol("!") {
             let operator = self.bump().unwrap().text.clone();
             let operand = self.prefix()?;

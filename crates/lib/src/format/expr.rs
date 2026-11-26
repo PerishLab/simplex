@@ -17,6 +17,19 @@ impl Printer {
                 self.out.push_str(operator);
                 self.expression(operand);
             }
+            Expression::Borrow {
+                mutable, target, ..
+            } => {
+                if *mutable {
+                    self.out.push_str("&var ");
+                } else {
+                    self.out.push('&');
+                }
+                self.expression(target);
+            }
+            Expression::Index {
+                base, start, limit, ..
+            } => self.index(base, start, limit.as_deref()),
             Expression::Binary {
                 left,
                 operator,
@@ -55,6 +68,17 @@ impl Printer {
                 self.function(inputs, output.as_ref(), body);
             }
         }
+    }
+
+    fn index(&mut self, base: &Expression, start: &Expression, limit: Option<&Expression>) {
+        self.expression(base);
+        self.out.push('[');
+        self.expression(start);
+        if let Some(end) = limit {
+            self.out.push_str("..");
+            self.expression(end);
+        }
+        self.out.push(']');
     }
 
     fn binary(&mut self, left: &Expression, operator: &str, right: &Expression, wrapped: bool) {

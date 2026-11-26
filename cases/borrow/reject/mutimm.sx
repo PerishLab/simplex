@@ -1,0 +1,13 @@
+Frame := struct {
+    offset: usize
+}
+
+advance := (frame: &var Frame, step: usize) {
+    frame.offset += step
+}
+
+broken := (limit: usize) -> usize {
+    frame := Frame { offset: limit }
+    advance(&var frame, 1)
+    frame.offset
+}

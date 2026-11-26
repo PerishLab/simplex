@@ -1,0 +1,15 @@
+trim := (payload: &[u8], skip: usize, limit: usize) -> &[u8] {
+    &payload[skip..limit]
+}
+
+stamp := (payload: &var [u8], mark: u8) {
+    payload[0] = mark
+    payload[1] = mark
+}
+
+digest := (payload: &var [u8], mark: u8) -> u8 {
+    head := trim(payload, 0, 4)
+    checksum := head[0] ^ head[1]
+    stamp(payload, mark ^ checksum)
+    payload[0] ^ checksum
+}

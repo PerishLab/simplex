@@ -169,7 +169,7 @@ impl<'a> Surface<'a> {
         if token.kind != Kind::Symbol {
             return false;
         }
-        if token.text == "-" {
+        if matches!(token.text.as_str(), "-" | "&") {
             return self.get(index + 1).is_some_and(|next| next.spaced);
         }
         continuation(&token.text)

@@ -1,0 +1,8 @@
+Header := struct {
+    offset: usize
+}
+
+forge := (limit: usize) -> &Header {
+    var local := Header { offset: limit }
+    &local
+}

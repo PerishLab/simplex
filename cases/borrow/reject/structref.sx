@@ -1,0 +1,7 @@
+Header := struct {
+    offset: usize
+}
+
+Cursor := struct {
+    target: &Header
+}

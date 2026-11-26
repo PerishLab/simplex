@@ -70,9 +70,14 @@ accumulate.
   and generics, with zero inheritance hierarchies.
 - **Errors as values**: Failure is represented as ordinary typed values
   decomposed through `switch`, with no exception unwinding.
-- **Ownership and `borrow` model**: Memory and resource safety follow a
-  deterministic ownership and borrow-checking model without a garbage
-  collector.
+- **Ownership and low-noise `borrow` model**: Memory and resource safety follow
+  a deterministic move-by-default ownership and borrow-checking model without a
+  garbage collector or `'a` lifetime sigils. Pure scalar-field value types opt
+  into implicit copying via `Type : Copy {}`; call sites distinguish read-only
+  borrows (`&x`, `&[T]`), exclusive mutable borrows (`&var x`, `&var [T]`) and
+  ownership transfers (`x`) at a glance; first-class borrows are strictly
+  lexical views (forbidden inside `struct`/`enum` fields) with last-use NLL
+  release and parameter-bound borrow returns.
 - **Native `async`**: Asynchronous execution is a first-class language
   construct rather than an external macro or callback rewrite.
 

@@ -248,8 +248,11 @@ impl<'a> Cursor<'a> {
                 self.bump();
                 self.escape(mark)?;
             }
-            Some(_) => {
+            Some(ch) => {
                 self.bump();
+                if ch.is_ascii_alphabetic() && self.peek() != Some(b'\'') {
+                    return Err(mark.fault(Code::Lifetime));
+                }
             }
         }
         if self.peek() != Some(b'\'') {

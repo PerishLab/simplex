@@ -1,0 +1,31 @@
+Header := struct {
+    offset: usize
+    length: usize
+}
+
+Frame := struct {
+    header: Header
+}
+
+head := (frame: &Frame) -> &Header {
+    &frame.header
+}
+
+advance := (frame: &var Frame, step: usize) {
+    frame.header.offset += step
+    frame.header.length -= step
+}
+
+seal := (frame: Frame) -> usize {
+    frame.header.offset
+}
+
+process := (limit: usize) -> usize {
+    var frame := Frame {
+        header: Header { offset: 0, length: limit },
+    }
+    view := head(&frame)
+    span := view.offset + view.length
+    advance(&var frame, span / 2)
+    seal(frame) + span
+}

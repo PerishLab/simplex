@@ -152,6 +152,28 @@ impl<'a> Stream<'a> {
         if self.peek().is_some_and(|tok| tok.symbol("(")) {
             return Err(self.peek().unwrap().fault(Code::Tuple));
         }
+        if self.peek().is_some_and(|tok| tok.symbol("&")) {
+            self.bump();
+            let mutable = if self
+                .peek()
+                .is_some_and(|tok| tok.word("var") && !tok.spaced)
+            {
+                self.bump();
+                true
+            } else {
+                false
+            };
+            return Ok(Spec::Borrow {
+                mutable,
+                target: Box::new(self.spec()?),
+            });
+        }
+        if self.peek().is_some_and(|tok| tok.symbol("[")) {
+            self.bump();
+            let inner = self.spec()?;
+            self.expect("]")?;
+            return Ok(Spec::Slice(Box::new(inner)));
+        }
         if self.peek().is_some_and(|tok| tok.word("fn")) {
             return self.signature();
         }

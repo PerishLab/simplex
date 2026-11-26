@@ -138,6 +138,11 @@ pub enum Spec {
         name: String,
         arguments: Vec<Spec>,
     },
+    Borrow {
+        mutable: bool,
+        target: Box<Spec>,
+    },
+    Slice(Box<Spec>),
     Callable {
         inputs: Vec<Spec>,
         output: Option<Box<Spec>>,
@@ -235,6 +240,19 @@ pub enum Expression {
     Unary {
         operator: String,
         operand: Box<Expression>,
+    },
+    Borrow {
+        mutable: bool,
+        target: Box<Expression>,
+        line: usize,
+        column: usize,
+    },
+    Index {
+        base: Box<Expression>,
+        start: Box<Expression>,
+        limit: Option<Box<Expression>>,
+        line: usize,
+        column: usize,
     },
     Binary {
         left: Box<Expression>,
