@@ -7,13 +7,15 @@ fn repository() {
     let root = Path::new("../../cases");
     let report = verify(root).expect("golden suite clean");
     assert_eq!(report.domains, 8);
-    assert!(report.passed >= 1);
-    assert!(report.rejected >= 4);
+    assert_eq!(report.passed, 6);
+    assert_eq!(report.rejected, 25);
 }
 
 #[test]
 fn laws() {
     assert!(scan("packet := Packet { tag: 1 }\n").is_ok());
+    assert!(scan("wide := port.into<u64>()\n").is_ok());
+    assert!(scan("shifted := mask >> 2\n").is_ok());
     assert_eq!(
         scan("// forbidden\nanswer := 1\n").unwrap_err().code,
         Code::Comment
@@ -27,6 +29,21 @@ fn laws() {
     assert_eq!(
         scan("PacketHeader := 1\n").unwrap_err().code,
         Code::Singleword
+    );
+    assert_eq!(scan("let port := 1\n").unwrap_err().code, Code::Declaration);
+    assert_eq!(scan("count--\n").unwrap_err().code, Code::Assignment);
+    assert_eq!(scan("port := 8080;\n").unwrap_err().code, Code::Semicolon);
+    assert_eq!(
+        scan("wide := (-42).into<i64>()\n").unwrap_err().code,
+        Code::Cast
+    );
+    assert_eq!(
+        scan("check(left<right, top>bottom)\n").unwrap_err().code,
+        Code::Spacing
+    );
+    assert_eq!(
+        scan("sum := left\n    - right\n").unwrap_err().code,
+        Code::Continuation
     );
     assert_eq!(scan("if ready {}\n").unwrap_err().code, Code::If);
     assert_eq!(

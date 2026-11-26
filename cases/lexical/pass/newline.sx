@@ -1,0 +1,10 @@
+sum := left +
+    right
+
+chained := source.
+    trim()
+
+value := compute(
+    first,
+    second,
+)

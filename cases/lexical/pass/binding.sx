@@ -1,0 +1,7 @@
+port := 8080
+limit: usize = 4096
+var count := 0
+var flags: u32 = 1
+count = count + 1
+count += 2
+flags |= 4
