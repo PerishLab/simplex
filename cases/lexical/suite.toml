@@ -1,0 +1,17 @@
+domain = "lexical"
+
+[[reject]]
+file = "camel.sx"
+code = "lexical.singleword"
+
+[[reject]]
+file = "comment.sx"
+code = "lexical.comment"
+
+[[reject]]
+file = "compound.sx"
+code = "lexical.singleword"
+
+[[reject]]
+file = "if.sx"
+code = "control.if"

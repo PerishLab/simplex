@@ -1,0 +1,30 @@
+[layout]
+
+[[layout.seat]]
+path = "crates/*"
+anchor = ["Cargo.toml"]
+note = "The Simplex CLI and prototype frontend library Rust workspace members."
+
+[[layout.seat]]
+path = "cases/*"
+anchor = ["suite.toml"]
+note = "Orthogonal golden .sx pass/reject specimen suites and exact rejection manifests."
+
+[[layout.seat]]
+path = ".cargo"
+note = "Cargo registry configuration."
+
+[[layout.file]]
+name = [".gitattributes"]
+note = "Git attribute policy."
+
+[[layout.file]]
+name = ["DESIGN.md"]
+note = "Simplex language design baseline and aesthetic laws."
+
+[[layout.file]]
+name = ["Cargo.toml", "Cargo.lock"]
+note = "Rust workspace anchors."
+
+[identity]
+ns = "simplex"
