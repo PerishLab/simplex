@@ -1,0 +1,24 @@
+Span := struct {
+    offset: usize
+    length: usize
+}
+
+Span.end := (self: Span) -> usize {
+    self.offset + self.length
+}
+
+Pair<A, B> := struct {
+    first: A
+    second: B
+}
+
+split := (span: Span, pivot: usize) -> Pair<Span, Span> {
+    left := Span { offset: span.offset, length: pivot }
+    Pair {
+        first: left,
+        second: Span {
+            offset: left.end(),
+            length: span.length - left.length,
+        },
+    }
+}

@@ -1,0 +1,3 @@
+add := (port: u16, span: u64) -> u64 {
+    port + span
+}

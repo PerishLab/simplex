@@ -14,6 +14,15 @@ pub struct Item {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Statement {
     Bind(Binding),
+    Method(Method),
+    Struct(Structure),
+    Enum(Enumeration),
+    Interface(Contract),
+    Alias(Alias),
+    Conform {
+        subject: String,
+        contract: Spec,
+    },
     Assign {
         target: Expression,
         operator: String,
@@ -26,6 +35,66 @@ pub enum Statement {
     },
     Loop(Loop),
     Evaluate(Expression),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Generic {
+    pub name: String,
+    pub bounds: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Slot {
+    pub name: String,
+    pub spec: Spec,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Structure {
+    pub name: String,
+    pub generics: Vec<Generic>,
+    pub fields: Vec<Slot>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Variant {
+    pub name: String,
+    pub payloads: Vec<Spec>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Enumeration {
+    pub name: String,
+    pub generics: Vec<Generic>,
+    pub variants: Vec<Variant>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Requirement {
+    pub name: String,
+    pub inputs: Vec<Parameter>,
+    pub output: Option<Spec>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Contract {
+    pub name: String,
+    pub generics: Vec<Generic>,
+    pub methods: Vec<Requirement>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Alias {
+    pub name: String,
+    pub generics: Vec<Generic>,
+    pub target: Spec,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Method {
+    pub receiver: String,
+    pub name: String,
+    pub value: Expression,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -52,6 +121,8 @@ pub enum Spec {
 pub struct Parameter {
     pub name: String,
     pub annotation: Option<Spec>,
+    pub line: usize,
+    pub column: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -125,7 +196,11 @@ pub struct Field {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expression {
-    Word(String),
+    Word {
+        text: String,
+        line: usize,
+        column: usize,
+    },
     Number(String),
     Text(String),
     Byte(String),
@@ -139,6 +214,8 @@ pub enum Expression {
         operator: String,
         right: Box<Expression>,
         wrapped: bool,
+        line: usize,
+        column: usize,
     },
     Member {
         base: Box<Expression>,
@@ -150,6 +227,8 @@ pub enum Expression {
         callee: Box<Expression>,
         arguments: Vec<Expression>,
         multiline: bool,
+        line: usize,
+        column: usize,
     },
     Record {
         name: String,
@@ -161,6 +240,7 @@ pub enum Expression {
     Bucket(Box<Partition>),
     Loop(Box<Loop>),
     Function {
+        generics: Vec<Generic>,
         inputs: Vec<Parameter>,
         output: Option<Spec>,
         body: Body,

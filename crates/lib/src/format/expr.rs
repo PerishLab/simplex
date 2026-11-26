@@ -4,7 +4,7 @@ use crate::tree::{Body, Expression, Field, Parameter, Spec};
 impl Printer {
     pub(crate) fn expression(&mut self, expr: &Expression) {
         match expr {
-            Expression::Word(text)
+            Expression::Word { text, .. }
             | Expression::Number(text)
             | Expression::Text(text)
             | Expression::Byte(text) => self.out.push_str(text),
@@ -22,6 +22,7 @@ impl Printer {
                 operator,
                 right,
                 wrapped,
+                ..
             } => self.binary(left, operator, right, *wrapped),
             Expression::Member {
                 base,
@@ -33,6 +34,7 @@ impl Printer {
                 callee,
                 arguments,
                 multiline,
+                ..
             } => self.call(callee, arguments, *multiline),
             Expression::Record {
                 name,
@@ -47,10 +49,14 @@ impl Printer {
             Expression::Bucket(partition) => self.partition(partition),
             Expression::Loop(kind) => self.repetition(kind),
             Expression::Function {
+                generics,
                 inputs,
                 output,
                 body,
-            } => self.function(inputs, output.as_ref(), body),
+            } => {
+                self.clauses(generics);
+                self.function(inputs, output.as_ref(), body);
+            }
         }
     }
 

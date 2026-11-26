@@ -106,9 +106,10 @@ impl<'a> Surface<'a> {
     }
 
     fn open(&self, index: usize, token: &Token, generics: usize) -> Result<usize, Finding> {
-        let head = index > 0 && self.tokens[index - 1].kind == Kind::Word && !token.spaced;
+        let attached = index > 0 && self.tokens[index - 1].kind == Kind::Word && !token.spaced;
+        let bound = index > 0 && self.binder(index - 1) && token.spaced;
         let next = self.get(index + 1);
-        if head {
+        if attached || bound {
             if next.is_none_or(|item| item.spaced || item.kind == Kind::Newline) {
                 return Err(token.fault(Code::Spacing));
             }
@@ -118,6 +119,10 @@ impl<'a> Surface<'a> {
             return Err(token.fault(Code::Spacing));
         }
         Ok(0)
+    }
+
+    fn binder(&self, index: usize) -> bool {
+        self.symbol(index, ":=") || self.symbol(index, "=")
     }
 
     fn close(&self, index: usize, token: &Token, generics: usize) -> Result<usize, Finding> {

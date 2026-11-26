@@ -1,0 +1,3 @@
+Child := struct extends Span {
+    extra: usize
+}

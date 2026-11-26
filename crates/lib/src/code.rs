@@ -51,6 +51,24 @@ pub enum Code {
     Syntax,
     #[serde(rename = "control.format")]
     Format,
+    #[serde(rename = "model.discard")]
+    Discard,
+    #[serde(rename = "model.inheritance")]
+    Inheritance,
+    #[serde(rename = "model.tuple")]
+    Tuple,
+    #[serde(rename = "model.declaration")]
+    Model,
+    #[serde(rename = "model.conformance")]
+    Conformance,
+    #[serde(rename = "model.bucket")]
+    Outcome,
+    #[serde(rename = "model.switch")]
+    Scrutinee,
+    #[serde(rename = "model.coercion")]
+    Coercion,
+    #[serde(rename = "model.binding")]
+    Usage,
 }
 
 impl Code {
@@ -80,6 +98,15 @@ impl Code {
             Self::Depth => "control.depth",
             Self::Syntax => "control.syntax",
             Self::Format => "control.format",
+            Self::Discard => "model.discard",
+            Self::Inheritance => "model.inheritance",
+            Self::Tuple => "model.tuple",
+            Self::Model => "model.declaration",
+            Self::Conformance => "model.conformance",
+            Self::Outcome => "model.bucket",
+            Self::Scrutinee => "model.switch",
+            Self::Coercion => "model.coercion",
+            Self::Usage => "model.binding",
         }
     }
 }

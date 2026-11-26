@@ -1,0 +1,9 @@
+Encoder := interface {
+    size: (self: Self) -> usize
+}
+
+Packet := struct {
+    length: usize
+}
+
+Packet : Encoder

@@ -1,0 +1,7 @@
+Span := struct {
+    length: usize
+}
+
+check := (span: Span) switch span {
+    0 => 0
+}

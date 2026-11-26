@@ -1,4 +1,4 @@
 read := (source: Source, decode: fn(Bytes) -> u64) switch source.body(source.header()?) {
     Outcome.ok(bytes) => Outcome.ok(decode(bytes))
-    Outcome.err(_) => Outcome.err(Fault.corrupt)
+    Outcome.err(fault) => Outcome.err(fault)
 }

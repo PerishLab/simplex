@@ -112,7 +112,8 @@ impl<'a> Stream<'a> {
     }
 
     fn call(&mut self, callee: Expression) -> Result<Expression, Finding> {
-        self.expect("(")?;
+        let open = self.expect("(")?;
+        let (line, column) = (open.line, open.column);
         let multiline = self.newlines() > 0;
         let mut arguments = Vec::new();
         while self.peek().is_some_and(|tok| !tok.symbol(")")) {
@@ -130,6 +131,8 @@ impl<'a> Stream<'a> {
             callee: Box::new(callee),
             arguments,
             multiline,
+            line,
+            column,
         })
     }
 }
