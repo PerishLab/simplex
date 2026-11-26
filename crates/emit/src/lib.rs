@@ -1,6 +1,10 @@
-use simplex_elf::{Mode, Plan};
+pub mod encode;
+pub mod lower;
+pub mod machine;
+pub mod plan;
+
+use simplex_elf::Plan;
 use simplex_hir::Unit;
-use simplex_runtime::Hook;
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -92,8 +96,5 @@ pub fn compile(unit: &Unit) -> Result<Plan, Fault> {
     if !unit.shared && unit.entry.is_none() {
         return Err(Fault::Entry);
     }
-    let dynamic = !unit.libraries.is_empty() || !unit.imports.is_empty();
-    let mode = Mode::select(unit.shared, dynamic);
-    let _ = Hook::Start.symbol();
-    Err(Fault::Unimplemented(format!("{mode:?}")))
+    lower::build(unit)
 }

@@ -1,3 +1,9 @@
+mod dynamic;
+mod format;
+mod image;
+mod layout;
+mod section;
+
 use std::fmt;
 
 pub const INTERPRETER: &str = "/lib64/ld-linux-x86-64.so.2";
@@ -13,12 +19,10 @@ pub enum Mode {
 
 impl Mode {
     pub const fn select(shared: bool, dynamic: bool) -> Self {
-        if shared {
-            Self::Shared
-        } else if dynamic {
-            Self::Dynamic
-        } else {
-            Self::Standalone
+        match (shared, dynamic) {
+            (true, _) => Self::Shared,
+            (false, true) => Self::Dynamic,
+            (false, false) => Self::Standalone,
         }
     }
 }
@@ -85,7 +89,7 @@ impl fmt::Display for Fault {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Empty => out.write_str("empty machine code section"),
-            Self::Unresolved(sym) => write!(out, "unresolved symbol: {sym}"),
+            Self::Unresolved(symbol) => write!(out, "unresolved symbol: {symbol}"),
             Self::Unsupported(mode) => write!(out, "unimplemented elf mode: {mode:?}"),
         }
     }
@@ -97,5 +101,8 @@ pub fn write(plan: &Plan) -> Result<Vec<u8>, Fault> {
     if plan.code.is_empty() && plan.mode != Mode::Shared {
         return Err(Fault::Empty);
     }
-    Err(Fault::Unsupported(plan.mode))
+    if plan.mode != Mode::Standalone {
+        return Err(Fault::Unsupported(plan.mode));
+    }
+    image::Writer::new(plan)?.emit()
 }

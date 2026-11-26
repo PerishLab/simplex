@@ -11,9 +11,10 @@ this file keeps repository-specific charter and constraints without copying it.
 9-domain cold-start specification into `linux-x86_64` native non-LLVM compiler
 implementation (`Project #13 · Simplex · Native`): the explored question,
 non-goals, native records, exit condition, governed verification harness,
-6-crate cross-layer ABI spine and `N0` monomorphized Typed HIR lowering exist,
-while native machine-code emission (`N1–N4`) and a released Depot `SKILL.md`
-promise remain `unknown` until `N1–N4` land.
+6-crate cross-layer ABI spine, `N0` monomorphized Typed HIR lowering and `N1`
+standalone `ELF64` native `x86_64` executable emission exist, while `N2–N4`
+dynamic linking, `.so` shared libraries, `Fiber` runtime execution and a
+released Depot `SKILL.md` promise remain `unknown` until `N2–N4` land.
 
 ## Explored question
 
@@ -45,17 +46,17 @@ The Rust workspace forms a strict zero-cycle DAG across six crates:
   monomorphized Typed HIR lowerer, deterministic scope `Drop` synthesis, `sx$`
   symbol mangling and System V AMD64 byte layout/passing computation
   (`Footprint`, `Passing`).
-- `crates/elf` (`simplex-elf`, zero dependencies): Dual-mode `linux-x86_64`
-  ELF64 image planner (`Standalone` static `ET_EXEC`, `Dynamic` `PT_INTERP` PIE,
-  and `Shared` `.so` library) and relocation contracts.
+- `crates/elf` (`simplex-elf`, zero dependencies): Pure-Rust `linux-x86_64`
+  ELF64 image emitter (`Standalone` static `ET_EXEC` live; `Dynamic` and
+  `Shared` modes staged for `N2–N3`) and relocation patcher.
 - `crates/runtime` (`simplex-runtime`, zero dependencies): `linux-x86_64`
   syscall numbers, `64 KiB + 4 KiB PROT_NONE` `Fiber` stack constants,
-  callee-saved `Context` frame (`rbx, rbp, r12..r15, rsp, rip`) and `sx$rt$*`
-  runtime hook symbols.
+  callee-saved `Context` frame (`rbx, rbp, r12..r15, rsp, rip`) and `sx$rt$exit`
+  process termination stub (`Fiber` kernel hooks staged for `N4`).
 - `crates/emit` (`simplex-emit`, depends on `simplex-hir`, `simplex-elf`,
-  `simplex-runtime`): Linear IR, System V register file (`rdi..r9` args,
-  `rax+rdx` pair returns, `rbx, r12..r15` callee-saved) and `x86_64` codegen
-  entry point.
+  `simplex-runtime`): Linear IR, loop-aware linear-scan register allocator
+  (`rdi..r9` args, `rax+rdx` pair returns, `rbx, r12..r15` callee-saved) and
+  `x86_64`/SSE2 native machine-code compiler.
 - `crates/cli` (`simplex-cli`): `simplex {check, format, build}` binary and
   black-box process execution tests (`crates/cli/tests/`).
 
