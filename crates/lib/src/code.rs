@@ -109,6 +109,18 @@ pub enum Code {
     Concurrent,
     #[serde(rename = "async.conformance")]
     Mismatch,
+    #[serde(rename = "comptime.macro")]
+    Macro,
+    #[serde(rename = "comptime.assert")]
+    Assert,
+    #[serde(rename = "comptime.constant")]
+    Constant,
+    #[serde(rename = "comptime.effect")]
+    Effect,
+    #[serde(rename = "comptime.budget")]
+    Budget,
+    #[serde(rename = "comptime.target")]
+    Target,
 }
 
 impl Code {
@@ -167,6 +179,12 @@ impl Code {
             Self::Cancel => "async.cancel",
             Self::Concurrent => "async.borrow",
             Self::Mismatch => "async.conformance",
+            Self::Macro => "comptime.macro",
+            Self::Assert => "comptime.assert",
+            Self::Constant => "comptime.constant",
+            Self::Effect => "comptime.effect",
+            Self::Budget => "comptime.budget",
+            Self::Target => "comptime.target",
         }
     }
 }

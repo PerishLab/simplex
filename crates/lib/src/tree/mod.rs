@@ -33,6 +33,7 @@ pub enum Statement {
         value: Expression,
     },
     For {
+        constant: bool,
         item: String,
         source: Expression,
         body: Block,
@@ -159,6 +160,7 @@ pub enum Spec {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Parameter {
+    pub constant: bool,
     pub name: String,
     pub annotation: Option<Spec>,
     pub line: usize,

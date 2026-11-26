@@ -1,0 +1,27 @@
+Digest := interface {
+    hash: (self: &Self) -> u64
+}
+
+fold := <T>(target: &T) -> u64 {
+    var acc: u64 = 14695981039346656037
+    comptime for field in fields<T>() {
+        acc = (acc ^ get(target, field).into<u64>()) * 1099511628211
+    }
+    acc
+}
+
+Header := struct {
+    magic: u32
+    version: u16
+    flags: u16
+}
+
+Header : Digest {
+    hash: (self: &Header) -> u64 {
+        fold(self)
+    }
+}
+
+verify := (header: &Header) -> u64 {
+    header.hash()
+}

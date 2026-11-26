@@ -1,0 +1,23 @@
+mask := comptime {
+    var acc: u64 = 0
+    for bit in 0..8 {
+        acc = (acc << 1) | 1
+    }
+    acc
+}
+
+comptime {
+    assert(mask == 255)
+}
+
+align := (offset: usize, comptime stride: usize) -> usize {
+    comptime {
+        assert(stride > 0)
+        assert((stride & (stride - 1)) == 0)
+    }
+    (offset + stride - 1) / stride * stride
+}
+
+page := (offset: usize) -> usize {
+    align(offset, 4096)
+}

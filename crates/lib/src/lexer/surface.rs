@@ -18,6 +18,13 @@ impl<'a> Surface<'a> {
 
     fn casts(&self) -> Result<(), Finding> {
         for (index, token) in self.tokens.iter().enumerate() {
+            if token.kind == Kind::Word
+                && self
+                    .get(index + 1)
+                    .is_some_and(|next| next.symbol("!") && !next.spaced)
+            {
+                return Err(token.fault(Code::Macro));
+            }
             if token.kind == Kind::Word && token.text == "as" && !self.dotted(index) {
                 return Err(token.fault(Code::Cast));
             }

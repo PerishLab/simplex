@@ -5,12 +5,13 @@ mod count;
 mod fiber;
 mod flow;
 mod infer;
+mod meta;
 mod usage;
 
 use crate::code::{Code, Finding};
 use crate::tree::{
-    Conformance, Contract, Enumeration, Expression, Generic, Item, Program, Spec, Statement,
-    Structure,
+    Body, Conformance, Contract, Enumeration, Expression, Generic, Item, Parameter, Program, Spec,
+    Statement, Structure,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -19,6 +20,7 @@ pub fn check(program: &Program) -> Result<(), Finding> {
     usage::verify(&table, program)?;
     table.conformances()?;
     check::verify(&table, program)?;
+    table.evaluate(program)?;
     table.fibers(program)?;
     table.verify(program)
 }
@@ -45,6 +47,8 @@ pub(crate) struct Table {
     pub(crate) interfaces: BTreeMap<String, Contract>,
     pub(crate) aliases: BTreeMap<String, Spec>,
     pub(crate) functions: BTreeMap<String, Signature>,
+    pub(crate) bodies: BTreeMap<String, (Vec<Parameter>, Body)>,
+    pub(crate) externals: BTreeSet<String>,
     pub(crate) methods: BTreeMap<(String, String), Signature>,
     pub(crate) claims: Vec<Claim>,
     pub(crate) satisfied: BTreeSet<(String, String)>,
@@ -80,8 +84,13 @@ impl Table {
                 if let Some(sig) = callable(&binding.value) {
                     self.functions.insert(binding.name.clone(), sig);
                 }
+                if let Expression::Function { inputs, body, .. } = &binding.value {
+                    self.bodies
+                        .insert(binding.name.clone(), (inputs.clone(), body.clone()));
+                }
             }
             Statement::Extern(ext) => {
+                self.externals.insert(ext.name.clone());
                 self.functions.insert(
                     ext.name.clone(),
                     Signature {

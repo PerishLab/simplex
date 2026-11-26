@@ -147,6 +147,7 @@ impl<'a> Cursor<'a> {
             "use" => Err(mark.fault(Code::Import)),
             "export" => Err(mark.fault(Code::Visibility)),
             "mod" => Err(mark.fault(Code::Barrel)),
+            "macro" => Err(mark.fault(Code::Macro)),
             _ if !single(slice) => Err(mark.fault(Code::Singleword)),
             _ => Ok(self.emit(mark, Kind::Word)),
         }

@@ -1,0 +1,5 @@
+clock := extern "c" "time" fn(slot: usize) -> i64
+
+now := comptime {
+    clock(0)
+}

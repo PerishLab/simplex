@@ -123,6 +123,7 @@ impl<'a> Flow<'a> {
                 item: name,
                 source,
                 body,
+                ..
             } => {
                 self.read(source)?;
                 let mut inner = self.clone();

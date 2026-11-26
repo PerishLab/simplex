@@ -1,0 +1,33 @@
+Class := enum {
+    control
+    digit
+    letter
+    other
+}
+
+classify := (byte: u8) bucket byte {
+    0..32 => Class.control
+    48..58 => Class.digit
+    65..91 => Class.letter
+    97..123 => Class.letter
+    _ => Class.other
+}
+
+score := (kind: Class) switch kind {
+    Class.control => 0
+    Class.digit => 1
+    Class.letter => 2
+    Class.other => 3
+}
+
+total := comptime {
+    var acc: usize = 0
+    for code in 48..58 {
+        acc += score(classify(code.as<u8>()))
+    }
+    acc
+}
+
+comptime {
+    assert(total == 10)
+}

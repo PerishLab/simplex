@@ -118,6 +118,7 @@ impl<'a> Counter<'a> {
                         .map(|arg| self.expression(arg))
                         .sum::<usize>()
             }
+            Expression::Meta(block) => self.items(&block.items),
             Expression::Record { fields, .. } => fields
                 .iter()
                 .map(|field| self.expression(&field.value))

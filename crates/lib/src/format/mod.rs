@@ -78,7 +78,15 @@ impl Printer {
                 self.out.push(' ');
                 self.expression(value);
             }
-            Statement::For { item, source, body } => {
+            Statement::For {
+                constant,
+                item,
+                source,
+                body,
+            } => {
+                if *constant {
+                    self.out.push_str("comptime ");
+                }
                 self.out.push_str("for ");
                 self.out.push_str(item);
                 self.out.push_str(" in ");

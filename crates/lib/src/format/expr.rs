@@ -47,12 +47,11 @@ impl Printer {
                 wrapped,
                 ..
             } => self.member(base, field, generics, *wrapped),
-            Expression::Call {
-                callee,
-                arguments,
-                multiline,
-                ..
-            } => self.call(callee, arguments, *multiline),
+            Expression::Call { .. } => self.call(expr),
+            Expression::Meta(block) => {
+                self.out.push_str("comptime ");
+                self.block(block);
+            }
             Expression::Record { .. } => self.record(expr),
             Expression::Try(inner) => {
                 self.expression(inner);
@@ -113,6 +112,11 @@ impl Printer {
 
     fn binary(&mut self, left: &Expression, operator: &str, right: &Expression, wrapped: bool) {
         self.expression(left);
+        if operator == ".." {
+            self.out.push_str("..");
+            self.expression(right);
+            return;
+        }
         self.out.push(' ');
         self.out.push_str(operator);
         if wrapped {
@@ -151,10 +155,25 @@ impl Printer {
         }
     }
 
-    fn call(&mut self, callee: &Expression, arguments: &[Expression], multiline: bool) {
+    fn call(&mut self, expr: &Expression) {
+        let Expression::Call {
+            callee,
+            generics,
+            arguments,
+            multiline,
+            ..
+        } = expr
+        else {
+            return;
+        };
         self.expression(callee);
+        if !generics.is_empty() {
+            self.out.push('<');
+            self.specs(generics);
+            self.out.push('>');
+        }
         self.out.push('(');
-        if multiline && !arguments.is_empty() {
+        if *multiline && !arguments.is_empty() {
             self.out.push('\n');
             self.indent += 1;
             for arg in arguments {

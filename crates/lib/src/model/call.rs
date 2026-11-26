@@ -36,6 +36,7 @@ impl<'a> Flow<'a> {
                 }
             }
             Expression::Call { .. } => self.call(expr),
+            Expression::Meta(block) => self.block(block),
             Expression::Record { fields, .. } => {
                 for field in fields {
                     self.consume(&field.value)?;

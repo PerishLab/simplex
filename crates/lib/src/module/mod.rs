@@ -152,6 +152,7 @@ impl Topology {
                 }
                 Ok(())
             }
+            Expression::Meta(block) => self.block(block),
             Expression::Record { fields, .. } => {
                 for field in fields {
                     self.expression(&field.value)?;

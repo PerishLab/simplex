@@ -10,6 +10,9 @@ impl Printer {
             if index > 0 {
                 self.out.push_str(", ");
             }
+            if param.constant {
+                self.out.push_str("comptime ");
+            }
             self.out.push_str(&param.name);
             if let Some(spec) = &param.annotation {
                 self.out.push_str(": ");

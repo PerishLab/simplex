@@ -121,11 +121,13 @@ pub enum Expression {
     },
     Call {
         callee: Box<Expression>,
+        generics: Vec<Spec>,
         arguments: Vec<Expression>,
         multiline: bool,
         line: usize,
         column: usize,
     },
+    Meta(Block),
     Record {
         module: Option<String>,
         name: String,

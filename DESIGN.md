@@ -88,9 +88,12 @@ accumulate.
 
 ### 4. Metaprogramming, compilation and linking
 
-- **Compile-time metaprogramming**: First-class `comptime` / macro-grade
-  compile-time reflection and generation, subject to the same structural laws
-  so generated and metaprogrammed code never degenerates into an alien dialect.
+- **Isomorphic `comptime` metaprogramming (no token macros)**: Compile-time
+  evaluation (`comptime { ... }`, `comptime` parameters, `assert`,
+  `fields<T>()` / `variants<T>()` / `size<T>()` reflection and `comptime for`
+  field unrolling) executes ordinary pure `.sx` code without `const fn` coloring
+  or `TokenStream`/bang macros, bounded by a deterministic step budget and
+  isolated from host I/O, FFI and `async` effects.
 - **`no llvm`**: Native machine-code generation without LLVM, optimizing for
   sub-second edit-compile-verify turnaround instead of multi-minute backend
   passes and build-lock contention.

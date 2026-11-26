@@ -1,0 +1,7 @@
+fetch := async (key: u64) -> u64 {
+    key
+}
+
+cached := comptime {
+    fetch(1).await
+}

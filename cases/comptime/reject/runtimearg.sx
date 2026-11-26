@@ -1,0 +1,10 @@
+align := (offset: usize, comptime stride: usize) -> usize {
+    comptime {
+        assert(stride > 0)
+    }
+    offset + stride
+}
+
+broken := (offset: usize, dynamic: usize) -> usize {
+    align(offset, dynamic)
+}

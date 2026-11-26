@@ -1,1 +1,45 @@
 domain = "comptime"
+
+[[reject]]
+file = "asynccomptime.sx"
+code = "comptime.effect"
+
+[[reject]]
+file = "badassert.sx"
+code = "comptime.assert"
+
+[[reject]]
+file = "badderive.sx"
+code = "model.coercion"
+
+[[reject]]
+file = "badfields.sx"
+code = "comptime.target"
+
+[[reject]]
+file = "badstride.sx"
+code = "comptime.assert"
+
+[[reject]]
+file = "badvariants.sx"
+code = "comptime.target"
+
+[[reject]]
+file = "bangmacro.sx"
+code = "comptime.macro"
+
+[[reject]]
+file = "hostffi.sx"
+code = "comptime.effect"
+
+[[reject]]
+file = "infinite.sx"
+code = "comptime.budget"
+
+[[reject]]
+file = "macrodef.sx"
+code = "comptime.macro"
+
+[[reject]]
+file = "runtimearg.sx"
+code = "comptime.constant"

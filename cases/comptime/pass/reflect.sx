@@ -1,0 +1,24 @@
+Status := enum {
+    ok
+    accepted
+    missing
+    fault
+}
+
+Header := struct {
+    magic: u32
+    version: u16
+    flags: u16
+}
+
+comptime {
+    assert(fields<Header>().len() == 3)
+    assert(variants<Status>().len() == 4)
+    assert(size<Header>() == 8)
+}
+
+arity := () -> usize {
+    comptime {
+        fields<Header>().len() + variants<Status>().len()
+    }
+}

@@ -47,6 +47,7 @@ impl<'a> Scope<'a> {
                 ..
             } => self.member(base, field, generics),
             Expression::Call { .. } => self.call(expr),
+            Expression::Meta(block) => self.block(block),
             Expression::Record {
                 module,
                 name,

@@ -202,6 +202,7 @@ impl<'a> Context<'a> {
                 self.expr(base)
             }
             Expression::Call { .. } => self.call(expr),
+            Expression::Meta(block) => self.clone().items(&block.items),
             Expression::Record { fields, .. } => {
                 for f in fields {
                     self.expr(&f.value)?;
