@@ -7,11 +7,12 @@ this file keeps repository-specific charter and constraints without copying it.
 
 ## Standing
 
-`simplex` is a **candidate bailiwick** in its cold-start specification and
-prototype-frontend phase: the explored question, non-goals, native records,
-exit condition and governed verification harness exist, while a released
-compiler product and Depot `SKILL.md` promise remain `unknown` until code
-generation and distribution begin.
+`simplex` is a **candidate bailiwick** transitioning from its completed
+9-domain cold-start specification into `linux-x86_64` native non-LLVM compiler
+implementation (`Project #13 · Simplex · Native`): the explored question,
+non-goals, native records, exit condition, governed verification harness and
+6-crate cross-layer ABI spine exist, while complete machine-code emission and a
+released Depot `SKILL.md` promise remain `unknown` until `N0–N4` land.
 
 ## Explored question
 
@@ -29,48 +30,31 @@ discipline against host-language escape hatches.
 Simplex owns the `.sx` general-purpose language specification, golden
 `pass / reject` specimen suites (`cases/*`), grammar, type and borrow checker,
 compile-time evaluation and typed decorators (`comptime` and `meta`), non-LLVM
-native code generator and `dylib` ABI/linking contract.
+native code generator, ELF64/`.so` linker and stackful `Fiber` runtime.
 
-## Current baseline
+## Workspace topology
 
-The repository includes the complete cold-start specification and prototype
-frontend across `M0 · Harness`, `M1 · Surface (lexical, control)`, `M2 · Model
-(model, module)` and `M3 · Seams (borrow, async, comptime, dylib, meta)`:
+The Rust workspace forms a strict zero-cycle DAG across six crates:
 
-- the governed Rust workspace (`crates/lib` and `crates/cli`, with dependency
-  direction `cli -> lib`) and `plumb.toml`;
-- the nine-domain pure golden specimen layout under `cases/*` (`lexical`,
-  `control`, `model`, `module`, `borrow`, `async`, `comptime`, `dylib`, `meta`),
-  each anchored by a `suite.toml` manifest mapping `reject/*.sx` specimens to
-  exact refusal codes so `.sx` files remain completely comment-free; and
-- the reviewed `lexical` (6 `pass`, 25 `reject`), `control` (5 `pass`, 21
-  `reject`), `model` (5 `pass`, 19 `reject`), `module` (3 `pass`, 18 `reject`),
-  `borrow` (4 `pass`, 14 `reject`), `async` (4 `pass`, 12 `reject`), `comptime`
-  (4 `pass`, 11 `reject`), `dylib` (3 `pass`, 11 `reject`) and `meta` (4 `pass`,
-  9 `reject`) golden suites (178 specimens total) paired with zero-backtracking
-  lexical/AST parsing, `bucket` + `switch` control laws, unified `:=`
-  `struct`/`enum`/`interface`/alias/`import`/`dylib`/`extern "c"` modeling,
-  closed `Type : Interface { ... }` conformance blocks, 1:1 file-is-module
-  cycle/visibility graph checks, compiler arity/depth/chain caps (`param <= 4`,
-  `block <= 4`, `path <= 3`), move-by-default ownership with `Type : Copy {}`
-  opt-in, `&T` / `&var T` / `&[T]` / `&var [T]` borrow and slice checking with
-  NLL release, first-class native `async` with linear `Fiber<T>` handles and
-  `.all().await` / `.race().await` combinators, bounded isomorphic `comptime`
-  evaluation, static assertions, `fields`/`variants`/`size` reflection and
-  `comptime for` unrolling, `pub dylib` / `leaf := dylib path.leaf` ABI
-  monomorphization, transparent-layout and `&Interface` boundary checks,
-  declaration/member `@` decorators (`@derive` conformance synthesis, aspect
-  signature preservation, field metadata tags via `has`), `@caller` call-site
-  provenance, package-anchored `embed` path confinement, zero built-in unit-test
-  or conditional-compilation syntax (`test` / `@test` / `@cfg` refused), generic
-  bound checking, local type inference with zero implicit coercion, global
-  single-meaning `_` (only `bucket`'s fallback arm), `uses >= 2` local binding
-  hygiene and byte-idempotent canonical formatting in `crates/lib` and
-  `simplex {check,format}`.
-
-Non-LLVM native machine-code generation, dynamic linker runtime loading and
-standard I/O libraries are not yet implemented; design principles live in
-[DESIGN.md](DESIGN.md).
+- `crates/lib` (`simplex`): Zero-backtracking lexer, parser, canonical
+  formatter, local semantic/borrow/`comptime`/`dylib`/`meta` checker and 9-domain
+  golden verifier (`38 pass, 140 reject`).
+- `crates/hir` (`simplex-hir`, depends on `simplex`): Monomorphized Typed HIR,
+  `sx$` deterministic symbol mangling and System V AMD64 byte layout/passing
+  contracts (`Footprint`, `Passing`).
+- `crates/elf` (`simplex-elf`, zero dependencies): Dual-mode `linux-x86_64`
+  ELF64 image planner (`Standalone` static `ET_EXEC`, `Dynamic` `PT_INTERP` PIE,
+  and `Shared` `.so` library) and relocation contracts.
+- `crates/runtime` (`simplex-runtime`, zero dependencies): `linux-x86_64`
+  syscall numbers, `64 KiB + 4 KiB PROT_NONE` `Fiber` stack constants,
+  callee-saved `Context` frame (`rbx, rbp, r12..r15, rsp, rip`) and `sx$rt$*`
+  runtime hook symbols.
+- `crates/emit` (`simplex-emit`, depends on `simplex-hir`, `simplex-elf`,
+  `simplex-runtime`): Linear IR, System V register file (`rdi..r9` args,
+  `rax+rdx` pair returns, `rbx, r12..r15` callee-saved) and `x86_64` codegen
+  entry point.
+- `crates/cli` (`simplex-cli`): `simplex {check, format, build}` binary and
+  black-box process execution tests (`crates/cli/tests/`).
 
 ## Core objects
 
@@ -80,27 +64,37 @@ standard I/O libraries are not yet implemented; design principles live in
   semantic rule that refuses an invalid `.sx` specimen.
 - **Suite**: One orthogonal domain directory (`cases/<domain>`) pairing pure
   `pass/*.sx` and `reject/*.sx` specimens with a `suite.toml` refusal manifest.
+- **Unit**: One monomorphized Typed HIR compilation module carrying exact SysV
+  layouts, `.rodata` assets, vtables and routines.
+- **Plan**: One `linux-x86_64` ELF64 emission specification (`Standalone`,
+  `Dynamic` or `Shared`) pairing `.text`/`.rodata` bytes with symbols and
+  relocations.
 
 ## Invariants
 
-- **Truth over intention**: Keep implemented truth in `AGENTS.md` and unbuilt
-  language design direction in [DESIGN.md](DESIGN.md) and native Issues.
+- **Truth over intention**: Keep implemented truth in `AGENTS.md` and target
+  architecture in [DESIGN.md](DESIGN.md) and native Issues.
 - **Pure `.sx` specimens**: `.sx` files in `cases/*` never carry inline
   expectation comments; every `reject/*.sx` file on disk must be explicitly
   listed with its exact `Code` in that domain's `suite.toml`, and unlisted or
   missing files fail closed.
+- **Frozen `linux-x86_64` ABI contract**: All backend crates obey System V AMD64
+  register/pair/`sret` passing, `sx$<ns>$<module>$<name>` /
+  `sx$vt$<ns>$<module>$<Type>$<Interface>` symbol names, dual-mode ELF64 output
+  (zero-interpreter standalone when dependency-free; `PT_INTERP` when linking
+  `dylib` or `extern "c"`), and `64 KiB + 4 KiB PROT_NONE` `Fiber` stacks.
 - **Orthogonal systems-language scope**: Simplex benchmarks directly against
   C++, Rust and Zig as a systems-grade general-purpose programming language; it
   does not solve markup, layout, styling or other specialized domain-specific
   language (DSL) problems and refuses kitchen-sink scope expansion.
-- **Zero silent weakening**: All Rust frontend source obeys domain `singleword`,
+- **Zero silent weakening**: All Rust source obeys domain `singleword`,
   comment-ban and structural limits without exemptions.
 
 ## Non-goals
 
 - Solving or absorbing markup, layout, styling or other specialized/future
   domain-specific languages (DSLs).
-- No LLVM backend dependency.
+- No LLVM or Cranelift backend dependency.
 - No tracing garbage collector.
 - No class or struct inheritance hierarchy.
 - No built-in white-box unit-test syntax (`test`, `@test`) or conditional
@@ -112,9 +106,10 @@ standard I/O libraries are not yet implemented; design principles live in
 
 ## Native records
 
-- Planning lives in [Project #12 (`Simplex · Cold-start`)](https://github.com/orgs/PerishLab/projects/12).
-- Decisions, `pass / reject` specimen reviews, boundary changes, progress and
-  acceptance live only in `PerishLab/simplex` GitHub Issues and pull requests.
+- Active native-compiler planning lives in [Project #13 (`Simplex · Native`)](https://github.com/orgs/PerishLab/projects/13);
+  closed cold-start history is archived in [Project #12 (`Simplex · Cold-start`)](https://github.com/orgs/PerishLab/projects/12).
+- Decisions, specimen reviews, boundary changes, progress and acceptance live
+  only in `PerishLab/simplex` GitHub Issues and pull requests.
 - The repository carries no workflow, no skill source and no release notes.
 
 ## Verification
