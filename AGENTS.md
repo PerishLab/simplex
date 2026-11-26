@@ -10,9 +10,10 @@ this file keeps repository-specific charter and constraints without copying it.
 `simplex` is a **candidate bailiwick** transitioning from its completed
 9-domain cold-start specification into `linux-x86_64` native non-LLVM compiler
 implementation (`Project #13 · Simplex · Native`): the explored question,
-non-goals, native records, exit condition, governed verification harness and
-6-crate cross-layer ABI spine exist, while complete machine-code emission and a
-released Depot `SKILL.md` promise remain `unknown` until `N0–N4` land.
+non-goals, native records, exit condition, governed verification harness,
+6-crate cross-layer ABI spine and `N0` monomorphized Typed HIR lowering exist,
+while native machine-code emission (`N1–N4`) and a released Depot `SKILL.md`
+promise remain `unknown` until `N1–N4` land.
 
 ## Explored question
 
@@ -39,9 +40,11 @@ The Rust workspace forms a strict zero-cycle DAG across six crates:
 - `crates/lib` (`simplex`): Zero-backtracking lexer, parser, canonical
   formatter, local semantic/borrow/`comptime`/`dylib`/`meta` checker and 9-domain
   golden verifier (`38 pass, 140 reject`).
-- `crates/hir` (`simplex-hir`, depends on `simplex`): Monomorphized Typed HIR,
-  `sx$` deterministic symbol mangling and System V AMD64 byte layout/passing
-  contracts (`Footprint`, `Passing`).
+- `crates/hir` (`simplex-hir`, depends on `simplex`): Topological multi-module
+  `import`/`dylib`/`extern "c"` loader, generic/`comptime`/`@derive`/decorator/`@caller`/`embed`
+  monomorphized Typed HIR lowerer, deterministic scope `Drop` synthesis, `sx$`
+  symbol mangling and System V AMD64 byte layout/passing computation
+  (`Footprint`, `Passing`).
 - `crates/elf` (`simplex-elf`, zero dependencies): Dual-mode `linux-x86_64`
   ELF64 image planner (`Standalone` static `ET_EXEC`, `Dynamic` `PT_INTERP` PIE,
   and `Shared` `.so` library) and relocation contracts.
