@@ -1,0 +1,5 @@
+packet := import packet
+
+probe := (code: u16) -> u16 {
+    packet.secret(code)
+}

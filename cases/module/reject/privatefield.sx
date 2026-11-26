@@ -1,0 +1,9 @@
+span := import span
+packet := import packet
+
+forge := (window: span.Span) -> packet.Packet {
+    packet.Packet {
+        window: window,
+        tag: 1,
+    }
+}

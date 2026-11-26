@@ -144,6 +144,9 @@ impl<'a> Cursor<'a> {
             "return" => Err(mark.fault(Code::Return)),
             "try" | "catch" | "throw" => Err(mark.fault(Code::Exception)),
             "let" | "mut" => Err(mark.fault(Code::Declaration)),
+            "use" => Err(mark.fault(Code::Import)),
+            "export" => Err(mark.fault(Code::Visibility)),
+            "mod" => Err(mark.fault(Code::Barrel)),
             _ if !single(slice) => Err(mark.fault(Code::Singleword)),
             _ => Ok(self.emit(mark, Kind::Word)),
         }

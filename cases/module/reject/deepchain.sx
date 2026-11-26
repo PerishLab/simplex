@@ -1,0 +1,3 @@
+read := (root: u64) -> u64 {
+    root.session.channel.stream
+}

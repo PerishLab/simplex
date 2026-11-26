@@ -104,7 +104,7 @@ impl<'a> Stream<'a> {
             Kind::Byte => Ok(Expression::Byte(tok.text.clone())),
             Kind::Word => {
                 if capitalized(&tok.text) && self.record() {
-                    self.literal(tok.text.clone())
+                    self.literal(None, tok.text.clone(), (tok.line, tok.column))
                 } else {
                     Ok(Expression::Word {
                         text: tok.text.clone(),

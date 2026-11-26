@@ -1,0 +1,25 @@
+span := import span
+
+Internal := struct {
+    code: u16
+}
+
+pub Packet := struct {
+    pub window: span.Span
+    tag: u16
+}
+
+secret := (item: Internal) -> u16 {
+    item.code + 1
+}
+
+pub make := (window: span.Span, code: u16) -> Packet {
+    Packet {
+        window: window,
+        tag: secret(Internal { code: code }),
+    }
+}
+
+pub limit := (packet: Packet) -> usize {
+    span.end(packet.window)
+}

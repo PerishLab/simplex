@@ -24,11 +24,20 @@ impl<'a> Scope<'a> {
                 ..
             } => self.member(base, field, generics),
             Expression::Call { .. } => self.call(expr),
-            Expression::Record { name, fields, .. } => {
+            Expression::Record {
+                module,
+                name,
+                fields,
+                ..
+            } => {
                 for field in fields {
                     self.infer(&field.value)?;
                 }
-                Ok(Type::Nominal(self.table.resolve(name)))
+                let label = match module {
+                    Some(prefix) => format!("{prefix}.{name}"),
+                    None => self.table.resolve(name),
+                };
+                Ok(Type::Nominal(label))
             }
             Expression::Switch(dispatch) => self.dispatch(dispatch),
             Expression::Bucket(partition) => self.partition(partition),

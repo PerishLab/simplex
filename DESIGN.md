@@ -32,10 +32,13 @@ accumulate.
 
 ### 2. Visual and structural laws by construction
 
-- **`singleword`**: Every locally declared identifier is a single vocabulary
-  atom (no underscore-joined or camelCase/PascalCase multi-word compounds).
-  Module paths map 1:1 to filesystem paths (file-is-module), without re-export
-  barrels or path-alias indirection.
+- **`singleword` and 1:1 file-is-module**: Every locally declared identifier is
+  a single vocabulary atom (no underscore-joined or camelCase/PascalCase
+  multi-word compounds). Module paths map 1:1 to filesystem paths via
+  `leaf := import path.leaf`, with strictly binary file-private vs `pub`
+  visibility, zero barrel files (`mod.sx`, `index.sx`, `lib.sx`), zero `pub
+  import` re-exports, zero cyclic imports and string-quarantined C FFI bindings
+  (`name := extern "c" "symbol" fn(...)`).
 - **`no comment`**: The `.sx` grammar has no line or block comments. Intent that
   cannot be expressed through names, types, exhaustive structure and tests
   belongs in governed design or Issue records, never inline excuses.
@@ -50,8 +53,9 @@ accumulate.
   with non-`void` inferred results, and `(params) [-> R] { ... }` expresses
   block `fn` contracts.
 - **Bounded topology and canonical form**: Compiler limits cap block nesting
-  depth and parameter count, refusing anonymous large tuples across boundaries,
-  paired with one canonical formatting representation per syntax tree.
+  depth (`block <= 4`), parameter count (`param <= 4`) and member access chains
+  (`path <= 3`), refusing anonymous tuples across boundaries, paired with one
+  canonical formatting representation per syntax tree.
 
 ### 3. Types, abstraction, memory and control
 

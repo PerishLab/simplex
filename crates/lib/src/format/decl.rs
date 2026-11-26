@@ -1,7 +1,37 @@
 use super::Printer;
-use crate::tree::{Alias, Conformance, Contract, Enumeration, Generic, Structure};
+use crate::tree::{
+    Alias, Conformance, Contract, Enumeration, External, Generic, Import, Structure,
+};
 
 impl Printer {
+    pub(crate) fn imported(&mut self, item: &Import) {
+        self.out.push_str(&item.name);
+        self.out.push_str(" := import ");
+        for (index, part) in item.path.iter().enumerate() {
+            if index > 0 {
+                self.out.push('.');
+            }
+            self.out.push_str(part);
+        }
+    }
+
+    pub(crate) fn external(&mut self, item: &External) {
+        if item.public {
+            self.out.push_str("pub ");
+        }
+        self.out.push_str(&item.name);
+        self.out.push_str(" := extern ");
+        self.out.push_str(&item.abi);
+        self.out.push(' ');
+        self.out.push_str(&item.symbol);
+        self.out.push_str(" fn");
+        self.parameters(&item.inputs);
+        if let Some(output) = &item.output {
+            self.out.push_str(" -> ");
+            self.spec(output);
+        }
+    }
+
     pub(crate) fn clauses(&mut self, list: &[Generic]) {
         if list.is_empty() {
             return;
@@ -30,6 +60,9 @@ impl Printer {
     }
 
     pub(crate) fn structure(&mut self, item: &Structure) {
+        if item.public {
+            self.out.push_str("pub ");
+        }
         self.out.push_str(&item.name);
         self.clauses(&item.generics);
         if item.fields.is_empty() {
@@ -43,6 +76,9 @@ impl Printer {
                 self.out.push('\n');
             }
             self.margin();
+            if field.public {
+                self.out.push_str("pub ");
+            }
             self.out.push_str(&field.name);
             self.out.push_str(": ");
             self.spec(&field.spec);
@@ -54,6 +90,9 @@ impl Printer {
     }
 
     pub(crate) fn enumeration(&mut self, item: &Enumeration) {
+        if item.public {
+            self.out.push_str("pub ");
+        }
         self.out.push_str(&item.name);
         self.clauses(&item.generics);
         self.out.push_str(" := enum {\n");
@@ -77,6 +116,9 @@ impl Printer {
     }
 
     pub(crate) fn contract(&mut self, item: &Contract) {
+        if item.public {
+            self.out.push_str("pub ");
+        }
         self.out.push_str(&item.name);
         self.clauses(&item.generics);
         self.out.push_str(" := interface {\n");
@@ -101,6 +143,9 @@ impl Printer {
     }
 
     pub(crate) fn alias(&mut self, item: &Alias) {
+        if item.public {
+            self.out.push_str("pub ");
+        }
         self.out.push_str(&item.name);
         self.clauses(&item.generics);
         self.out.push_str(" := ");

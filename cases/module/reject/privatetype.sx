@@ -1,0 +1,5 @@
+packet := import packet
+
+Boxed := struct {
+    inner: packet.Internal
+}

@@ -155,14 +155,25 @@ impl<'a> Stream<'a> {
         if self.peek().is_some_and(|tok| tok.word("fn")) {
             return self.signature();
         }
-        let name = self.word()?.text.clone();
+        let first = self.word()?.text.clone();
+        let (module, name) =
+            if !super::capitalized(&first) && self.peek().is_some_and(|tok| tok.symbol(".")) {
+                self.bump();
+                (Some(first), self.word()?.text.clone())
+            } else {
+                (None, first)
+            };
         let mut arguments = Vec::new();
         if self.peek().is_some_and(|tok| tok.symbol("<")) {
             self.bump();
             arguments = self.speclist(">")?;
             self.expect(">")?;
         }
-        Ok(Spec::Named { name, arguments })
+        Ok(Spec::Named {
+            module,
+            name,
+            arguments,
+        })
     }
 
     fn signature(&mut self) -> Result<Spec, Finding> {

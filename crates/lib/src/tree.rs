@@ -13,6 +13,8 @@ pub struct Item {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Statement {
+    Import(Import),
+    Extern(External),
     Bind(Binding),
     Struct(Structure),
     Enum(Enumeration),
@@ -34,6 +36,22 @@ pub enum Statement {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Import {
+    pub name: String,
+    pub path: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct External {
+    pub public: bool,
+    pub name: String,
+    pub abi: String,
+    pub symbol: String,
+    pub inputs: Vec<Parameter>,
+    pub output: Option<Spec>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Generic {
     pub name: String,
     pub bounds: Vec<String>,
@@ -41,12 +59,14 @@ pub struct Generic {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Slot {
+    pub public: bool,
     pub name: String,
     pub spec: Spec,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Structure {
+    pub public: bool,
     pub name: String,
     pub generics: Vec<Generic>,
     pub fields: Vec<Slot>,
@@ -60,6 +80,7 @@ pub struct Variant {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Enumeration {
+    pub public: bool,
     pub name: String,
     pub generics: Vec<Generic>,
     pub variants: Vec<Variant>,
@@ -74,6 +95,7 @@ pub struct Requirement {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Contract {
+    pub public: bool,
     pub name: String,
     pub generics: Vec<Generic>,
     pub methods: Vec<Requirement>,
@@ -81,6 +103,7 @@ pub struct Contract {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Alias {
+    pub public: bool,
     pub name: String,
     pub generics: Vec<Generic>,
     pub target: Spec,
@@ -101,6 +124,7 @@ pub struct Conformance {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Binding {
+    pub public: bool,
     pub mutable: bool,
     pub name: String,
     pub annotation: Option<Spec>,
@@ -110,6 +134,7 @@ pub struct Binding {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Spec {
     Named {
+        module: Option<String>,
         name: String,
         arguments: Vec<Spec>,
     },
@@ -224,6 +249,8 @@ pub enum Expression {
         field: String,
         generics: Vec<Spec>,
         wrapped: bool,
+        line: usize,
+        column: usize,
     },
     Call {
         callee: Box<Expression>,
@@ -233,9 +260,12 @@ pub enum Expression {
         column: usize,
     },
     Record {
+        module: Option<String>,
         name: String,
         fields: Vec<Field>,
         multiline: bool,
+        line: usize,
+        column: usize,
     },
     Try(Box<Expression>),
     Switch(Box<Dispatch>),

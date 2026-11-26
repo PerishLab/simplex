@@ -1,5 +1,5 @@
 use super::Printer;
-use crate::tree::{Body, Expression, Field, Parameter, Spec};
+use crate::tree::{Body, Expression, Parameter, Spec};
 
 impl Printer {
     pub(crate) fn expression(&mut self, expr: &Expression) {
@@ -29,6 +29,7 @@ impl Printer {
                 field,
                 generics,
                 wrapped,
+                ..
             } => self.member(base, field, generics, *wrapped),
             Expression::Call {
                 callee,
@@ -36,11 +37,7 @@ impl Printer {
                 multiline,
                 ..
             } => self.call(callee, arguments, *multiline),
-            Expression::Record {
-                name,
-                fields,
-                multiline,
-            } => self.record(name, fields, *multiline),
+            Expression::Record { .. } => self.record(expr),
             Expression::Try(inner) => {
                 self.expression(inner);
                 self.out.push('?');
@@ -124,13 +121,27 @@ impl Printer {
         self.out.push(')');
     }
 
-    fn record(&mut self, name: &str, fields: &[Field], multiline: bool) {
+    fn record(&mut self, expr: &Expression) {
+        let Expression::Record {
+            module,
+            name,
+            fields,
+            multiline,
+            ..
+        } = expr
+        else {
+            return;
+        };
+        if let Some(prefix) = module {
+            self.out.push_str(prefix);
+            self.out.push('.');
+        }
         self.out.push_str(name);
         if fields.is_empty() {
             self.out.push_str(" {}");
             return;
         }
-        if multiline {
+        if *multiline {
             self.out.push_str(" {\n");
             self.indent += 1;
             for field in fields {

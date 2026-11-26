@@ -1,0 +1,4 @@
+build := () -> u64 {
+    pub value := 1
+    value + value
+}

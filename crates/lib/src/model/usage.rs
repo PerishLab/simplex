@@ -58,7 +58,9 @@ impl Scanner {
             Statement::Struct(_)
             | Statement::Enum(_)
             | Statement::Interface(_)
-            | Statement::Alias(_) => Ok(()),
+            | Statement::Alias(_)
+            | Statement::Import(_)
+            | Statement::Extern(_) => Ok(()),
             Statement::Assign { target, value, .. } => {
                 self.expression(target)?;
                 self.expression(value)

@@ -1,4 +1,4 @@
-use super::Stream;
+use super::{Stream, capitalized};
 use crate::code::{Code, Finding, Kind};
 use crate::tree::{Expression, Field, Spec};
 
@@ -23,7 +23,12 @@ impl<'a> Stream<'a> {
                 && self.tokens.get(look + 1).is_some_and(|sec| sec.symbol(":")))
     }
 
-    pub(crate) fn literal(&mut self, name: String) -> Result<Expression, Finding> {
+    pub(crate) fn literal(
+        &mut self,
+        module: Option<String>,
+        name: String,
+        pos: (usize, usize),
+    ) -> Result<Expression, Finding> {
         self.expect("{")?;
         let multiline = self.newlines() > 0;
         let mut fields = Vec::new();
@@ -42,9 +47,12 @@ impl<'a> Stream<'a> {
         }
         self.expect("}")?;
         Ok(Expression::Record {
+            module,
             name,
             fields,
             multiline,
+            line: pos.0,
+            column: pos.1,
         })
     }
 
@@ -74,15 +82,24 @@ impl<'a> Stream<'a> {
     }
 
     fn member(&mut self, base: Expression) -> Result<Expression, Finding> {
-        self.bump();
+        let dot = self.bump().unwrap();
+        let (line, column) = (dot.line, dot.column);
         let wrapped = self.newlines() > 0;
         let field = self.word()?.text.clone();
         let generics = self.generics()?;
+        if !wrapped
+            && generics.is_empty()
+            && let Some((owner, origin)) = qualified(&base, &field, self.record())
+        {
+            return self.literal(Some(owner), field, origin);
+        }
         Ok(Expression::Member {
             base: Box::new(base),
             field,
             generics,
             wrapped,
+            line,
+            column,
         })
     }
 
@@ -135,4 +152,14 @@ impl<'a> Stream<'a> {
             column,
         })
     }
+}
+
+fn qualified(base: &Expression, field: &str, braced: bool) -> Option<(String, (usize, usize))> {
+    if !braced || !capitalized(field) {
+        return None;
+    }
+    let Expression::Word { text, line, column } = base else {
+        return None;
+    };
+    (!capitalized(text)).then(|| (text.clone(), (*line, *column)))
 }
