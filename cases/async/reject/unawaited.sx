@@ -1,0 +1,8 @@
+send := async (size: usize) -> usize {
+    size
+}
+
+drop := async (size: usize) -> usize {
+    send(size)
+    size
+}

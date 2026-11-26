@@ -9,6 +9,7 @@ impl<'a> Flow<'a> {
         match expr {
             Expression::Word { text, line, column } => self.inspect(text, (*line, *column)),
             Expression::Group(inner) | Expression::Try(inner) => self.consume(inner),
+            Expression::List { items, .. } => self.listed(items),
             Expression::Unary { operand, .. } => self.read(operand),
             Expression::Borrow {
                 mutable,
@@ -21,16 +22,19 @@ impl<'a> Flow<'a> {
             } => {
                 self.read(base)?;
                 self.read(start)?;
-                if let Some(end) = limit {
-                    self.read(end)?;
-                }
-                Ok(())
+                limit.as_deref().map_or(Ok(()), |end| self.read(end))
             }
             Expression::Binary { left, right, .. } => {
                 self.read(left)?;
                 self.read(right)
             }
-            Expression::Member { base, .. } => self.read(base),
+            Expression::Member { base, field, .. } => {
+                if field == "await" {
+                    self.consume(base)
+                } else {
+                    self.read(base)
+                }
+            }
             Expression::Call { .. } => self.call(expr),
             Expression::Record { fields, .. } => {
                 for field in fields {
@@ -43,6 +47,18 @@ impl<'a> Flow<'a> {
             Expression::Loop(kind) => self.repetition(kind),
             _ => Ok(()),
         }
+    }
+
+    fn listed(&mut self, items: &[Expression]) -> Result<(), Finding> {
+        let mut active: Vec<(String, bool)> = Vec::new();
+        for item in items {
+            if matches!(item, Expression::Call { .. }) {
+                self.invoke(item, &mut active)?;
+            } else {
+                self.consume(item)?;
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn inspect(&self, name: &str, pos: (usize, usize)) -> Result<(), Finding> {
@@ -95,6 +111,15 @@ impl<'a> Flow<'a> {
     }
 
     fn call(&mut self, expr: &Expression) -> Result<(), Finding> {
+        let mut active: Vec<(String, bool)> = Vec::new();
+        self.invoke(expr, &mut active)
+    }
+
+    fn invoke(
+        &mut self,
+        expr: &Expression,
+        active: &mut Vec<(String, bool)>,
+    ) -> Result<(), Finding> {
         let Expression::Call {
             callee,
             arguments,
@@ -105,14 +130,13 @@ impl<'a> Flow<'a> {
         else {
             return Ok(());
         };
-        let mut active: Vec<(String, bool)> = Vec::new();
-        let (sig, offset) = self.receiver(callee, (*line, *column), &mut active)?;
+        let (sig, offset) = self.receiver(callee, (*line, *column), active)?;
         for (index, arg) in arguments.iter().enumerate() {
             let expected = sig
                 .as_ref()
                 .and_then(|s| s.inputs.get(index + offset))
                 .and_then(Option::as_ref);
-            self.argument(arg, expected, &mut active)?;
+            self.argument(arg, expected, active)?;
         }
         Ok(())
     }
@@ -135,11 +159,11 @@ impl<'a> Flow<'a> {
             match found.inputs.first().and_then(Option::as_ref) {
                 Some(Spec::Borrow { mutable, .. }) => {
                     self.borrow(*mutable, base, pos)?;
-                    overlap(active, &name, *mutable, pos)?;
+                    self.overlap(active, &name, *mutable, pos)?;
                     active.push((name, *mutable));
                 }
                 _ => {
-                    overlap(active, &name, true, pos)?;
+                    self.overlap(active, &name, true, pos)?;
                     self.transfer(&name, pos)?;
                     active.push((name, true));
                 }
@@ -173,7 +197,7 @@ impl<'a> Flow<'a> {
             }
             self.borrow(*mutable, target, pos)?;
             if let Some(name) = root(target) {
-                overlap(active, &name, *mutable, pos)?;
+                self.overlap(active, &name, *mutable, pos)?;
                 active.push((name, *mutable));
             }
             return Ok(());
@@ -185,14 +209,34 @@ impl<'a> Flow<'a> {
             let pos = (*line, *column);
             self.inspect(text, pos)?;
             self.conflict(text, *mutable, pos)?;
-            overlap(active, text, *mutable, pos)?;
+            self.overlap(active, text, *mutable, pos)?;
             active.push((text.clone(), *mutable));
             return Ok(());
         }
         if let Expression::Word { text, line, column } = arg {
-            overlap(active, text, true, (*line, *column))?;
+            self.overlap(active, text, true, (*line, *column))?;
         }
         self.consume(arg)
+    }
+
+    fn overlap(
+        &self,
+        active: &[(String, bool)],
+        target: &str,
+        mutable: bool,
+        pos: (usize, usize),
+    ) -> Result<(), Finding> {
+        if active
+            .iter()
+            .any(|(name, write)| name == target && (mutable || *write))
+        {
+            return Err(Finding {
+                code: self.code(),
+                line: pos.0,
+                column: pos.1,
+            });
+        }
+        Ok(())
     }
 
     pub(crate) fn repetition(&mut self, kind: &Loop) -> Result<(), Finding> {
@@ -241,27 +285,9 @@ impl<'a> Flow<'a> {
 
 fn clone(sig: &Signature) -> Signature {
     Signature {
+        asynchronous: sig.asynchronous,
         generics: sig.generics.clone(),
         inputs: sig.inputs.clone(),
         output: sig.output.clone(),
     }
-}
-
-fn overlap(
-    active: &[(String, bool)],
-    target: &str,
-    mutable: bool,
-    pos: (usize, usize),
-) -> Result<(), Finding> {
-    let hit = active
-        .iter()
-        .any(|(name, write)| name == target && (mutable || *write));
-    if hit {
-        return Err(Finding {
-            code: Code::Conflict,
-            line: pos.0,
-            column: pos.1,
-        });
-    }
-    Ok(())
 }

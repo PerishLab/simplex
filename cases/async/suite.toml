@@ -1,1 +1,49 @@
 domain = "async"
+
+[[reject]]
+file = "allmut.sx"
+code = "async.borrow"
+
+[[reject]]
+file = "awaitconflict.sx"
+code = "async.borrow"
+
+[[reject]]
+file = "doubleawait.sx"
+code = "borrow.moved"
+
+[[reject]]
+file = "escapefiber.sx"
+code = "async.detached"
+
+[[reject]]
+file = "fiberconflict.sx"
+code = "async.borrow"
+
+[[reject]]
+file = "racemut.sx"
+code = "async.cancel"
+
+[[reject]]
+file = "structfiber.sx"
+code = "async.detached"
+
+[[reject]]
+file = "syncawait.sx"
+code = "async.context"
+
+[[reject]]
+file = "syncfiber.sx"
+code = "async.context"
+
+[[reject]]
+file = "syncimpl.sx"
+code = "async.conformance"
+
+[[reject]]
+file = "unawaited.sx"
+code = "async.detached"
+
+[[reject]]
+file = "unjoined.sx"
+code = "async.detached"

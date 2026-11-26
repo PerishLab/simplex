@@ -1,0 +1,14 @@
+Pipe := struct {
+    sent: usize
+}
+
+flush := async (pipe: &var Pipe, quota: usize) -> usize {
+    pipe.sent += quota
+    pipe.sent
+}
+
+premature := async (pipe: &var Pipe) -> usize {
+    pending := flush(pipe, 1)
+    pipe.sent += 2
+    pending.await
+}

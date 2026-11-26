@@ -99,6 +99,16 @@ pub enum Code {
     Lifetime,
     #[serde(rename = "borrow.copy")]
     Replica,
+    #[serde(rename = "async.context")]
+    Context,
+    #[serde(rename = "async.detached")]
+    Detached,
+    #[serde(rename = "async.cancel")]
+    Cancel,
+    #[serde(rename = "async.borrow")]
+    Concurrent,
+    #[serde(rename = "async.conformance")]
+    Mismatch,
 }
 
 impl Code {
@@ -152,6 +162,11 @@ impl Code {
             Self::Storage => "borrow.storage",
             Self::Lifetime => "borrow.lifetime",
             Self::Replica => "borrow.copy",
+            Self::Context => "async.context",
+            Self::Detached => "async.detached",
+            Self::Cancel => "async.cancel",
+            Self::Concurrent => "async.borrow",
+            Self::Mismatch => "async.conformance",
         }
     }
 }

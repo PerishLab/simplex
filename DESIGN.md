@@ -78,8 +78,13 @@ accumulate.
   ownership transfers (`x`) at a glance; first-class borrows are strictly
   lexical views (forbidden inside `struct`/`enum` fields) with last-use NLL
   release and parameter-bound borrow returns.
-- **Native `async`**: Asynchronous execution is a first-class language
-  construct rather than an external macro or callback rewrite.
+- **Native `async` and linear `Fiber<T>` concurrency**: Asynchronous functions
+  and `interface` methods are first-class values (`async (...) -> T`) producing
+  uniform stackful `Fiber<T>` handles without `Pin<Box<dyn Future>>` type
+  erasure or special concurrency block syntax. Fibers and `List<Fiber<T>>`
+  batches compose via postfix `.await`, `.all().await` and cancellation-safe
+  `.race().await`, with compile-time linear settlement (forbidding detached
+  fibers) and NLL borrow tracking across suspension points.
 
 ### 4. Metaprogramming, compilation and linking
 

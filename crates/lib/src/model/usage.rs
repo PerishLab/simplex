@@ -1,17 +1,21 @@
+use super::Table;
 use super::count::Counter;
+use super::fiber::{mentions, spawns};
 use crate::code::{Code, Finding};
 use crate::tree::{
-    Block, Body, Branch, Dispatch, Expression, Item, Loop, Outcome, Parameter, Partition, Pattern,
-    Program, Statement,
+    Binding, Block, Body, Branch, Dispatch, Expression, Item, Loop, Outcome, Parameter, Partition,
+    Pattern, Program, Statement,
 };
 
-pub(crate) fn verify(program: &Program) -> Result<(), Finding> {
-    Scanner.items(&program.items, false)
+pub(crate) fn verify(table: &Table, program: &Program) -> Result<(), Finding> {
+    Scanner { table }.items(&program.items, false)
 }
 
-struct Scanner;
+struct Scanner<'a> {
+    table: &'a Table,
+}
 
-impl Scanner {
+impl<'a> Scanner<'a> {
     fn items(&self, list: &[Item], scoped: bool) -> Result<(), Finding> {
         for (index, item) in list.iter().enumerate() {
             self.guard(item, &list[index + 1..], scoped)?;
@@ -31,7 +35,7 @@ impl Scanner {
                 column: item.column,
             });
         }
-        if !scoped {
+        if !scoped || self.linear(binding) {
             return Ok(());
         }
         let refs = Counter::new(&binding.name).items(rest);
@@ -44,6 +48,10 @@ impl Scanner {
             });
         }
         Ok(())
+    }
+
+    fn linear(&self, binding: &Binding) -> bool {
+        binding.annotation.as_ref().is_some_and(mentions) || spawns(self.table, &binding.value)
     }
 
     fn statement(&self, item: &Item) -> Result<(), Finding> {
@@ -125,11 +133,7 @@ impl Scanner {
     fn branch(&self, arm: &Branch) -> Result<(), Finding> {
         match &arm.pattern {
             Pattern::Wildcard => {}
-            Pattern::Choices(list) => {
-                for expr in list {
-                    self.expression(expr)?;
-                }
-            }
+            Pattern::Choices(list) => self.many(list)?,
             Pattern::Range { start, end } => {
                 self.expression(start)?;
                 self.expression(end)?;
@@ -141,6 +145,13 @@ impl Scanner {
             Outcome::Break(None) | Outcome::Continue => Ok(()),
             Outcome::Block(block) => self.block(block),
         }
+    }
+
+    fn many(&self, list: &[Expression]) -> Result<(), Finding> {
+        for expr in list {
+            self.expression(expr)?;
+        }
+        Ok(())
     }
 
     fn expression(&self, expr: &Expression) -> Result<(), Finding> {
@@ -157,17 +168,17 @@ impl Scanner {
             }
             Expression::Number(_) | Expression::Text(_) | Expression::Byte(_) => Ok(()),
             Expression::Group(inner) | Expression::Try(inner) => self.expression(inner),
-            Expression::Unary { operand, .. } => self.expression(operand),
-            Expression::Borrow { target, .. } => self.expression(target),
+            Expression::List { items, .. } => self.many(items),
+            Expression::Unary { operand, .. }
+            | Expression::Borrow {
+                target: operand, ..
+            } => self.expression(operand),
             Expression::Index {
                 base, start, limit, ..
             } => {
                 self.expression(base)?;
                 self.expression(start)?;
-                if let Some(end) = limit {
-                    self.expression(end)?;
-                }
-                Ok(())
+                limit.as_deref().map_or(Ok(()), |end| self.expression(end))
             }
             Expression::Binary { left, right, .. } => {
                 self.expression(left)?;
@@ -178,10 +189,7 @@ impl Scanner {
                 callee, arguments, ..
             } => {
                 self.expression(callee)?;
-                for arg in arguments {
-                    self.expression(arg)?;
-                }
-                Ok(())
+                self.many(arguments)
             }
             Expression::Record { fields, .. } => {
                 for field in fields {

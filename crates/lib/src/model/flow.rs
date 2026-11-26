@@ -1,6 +1,7 @@
 use super::Table;
 use super::borrow::{contains, root, source};
 use super::count::Counter;
+use super::fiber::{mentions, spawns};
 use crate::code::{Code, Finding};
 use crate::tree::{Binding, Block, Body, Expression, Item, Parameter, Spec, Statement};
 use std::collections::BTreeMap;
@@ -25,21 +26,27 @@ pub(crate) struct Loan {
 #[derive(Clone)]
 pub(crate) struct Flow<'a> {
     pub(crate) table: &'a Table,
+    pub(crate) asynchronous: bool,
     pub(crate) vars: BTreeMap<String, Entry>,
     pub(crate) loans: Vec<Loan>,
 }
 
-pub(crate) fn verify(table: &Table, inputs: &[Parameter], body: &Body) -> Result<(), Finding> {
+pub(crate) fn verify(
+    table: &Table,
+    asynchronous: bool,
+    inputs: &[Parameter],
+    body: &Body,
+) -> Result<(), Finding> {
+    let vars = inputs
+        .iter()
+        .map(|p| (p.name.clone(), parameter(table, p)))
+        .collect();
     let mut state = Flow {
         table,
-        vars: BTreeMap::new(),
+        asynchronous,
+        vars,
         loans: Vec::new(),
     };
-    for param in inputs {
-        state
-            .vars
-            .insert(param.name.clone(), parameter(table, param));
-    }
     state.body(body)
 }
 
@@ -53,24 +60,22 @@ fn parameter(table: &Table, param: &Parameter) -> Entry {
     let writable = matches!(spec, Spec::Borrow { mutable: true, .. });
     Entry {
         writable,
-        copyable: table.copyable(spec),
+        copyable: !mentions(spec) && table.copyable(spec),
         lent: writable,
-        nominal: nominal(table, spec),
+        nominal: table.nominal(spec),
         ..Entry::default()
     }
 }
 
-fn nominal(table: &Table, spec: &Spec) -> Option<String> {
-    match spec {
-        Spec::Named {
-            module: None, name, ..
-        } => Some(table.resolve(name)),
-        Spec::Borrow { target, .. } => nominal(table, target),
-        _ => None,
-    }
-}
-
 impl<'a> Flow<'a> {
+    pub(crate) fn code(&self) -> Code {
+        if self.asynchronous {
+            Code::Concurrent
+        } else {
+            Code::Conflict
+        }
+    }
+
     fn body(&mut self, body: &Body) -> Result<(), Finding> {
         match body {
             Body::Block(block) => self.items(&block.items, self.loans.len()),
@@ -121,13 +126,11 @@ impl<'a> Flow<'a> {
             } => {
                 self.read(source)?;
                 let mut inner = self.clone();
-                inner.vars.insert(
-                    name.clone(),
-                    Entry {
-                        copyable: true,
-                        ..Entry::default()
-                    },
-                );
+                let slot = Entry {
+                    copyable: true,
+                    ..Entry::default()
+                };
+                inner.vars.insert(name.clone(), slot);
                 inner.block(body)
             }
             Statement::Loop(kind) => self.repetition(kind),
@@ -161,7 +164,13 @@ impl<'a> Flow<'a> {
 
     fn describe(&self, binding: &Binding) -> (bool, Option<String>) {
         if let Some(spec) = &binding.annotation {
-            return (self.table.copyable(spec), nominal(self.table, spec));
+            return (
+                !mentions(spec) && self.table.copyable(spec),
+                self.table.nominal(spec),
+            );
+        }
+        if spawns(self.table, &binding.value) {
+            return (false, None);
         }
         match &binding.value {
             Expression::Record {
@@ -173,9 +182,7 @@ impl<'a> Flow<'a> {
             Expression::Borrow {
                 mutable, target, ..
             } => {
-                let owner = root(target)
-                    .and_then(|r| self.vars.get(&r))
-                    .and_then(|e| e.nominal.clone());
+                let owner = root(target).and_then(|r| self.vars.get(&r)?.nominal.clone());
                 (!*mutable, owner)
             }
             _ => (true, None),
@@ -189,22 +196,28 @@ impl<'a> Flow<'a> {
             } => Some((root(target)?, *mutable)),
             Expression::Call {
                 callee, arguments, ..
-            } => Some((arguments.iter().find_map(source)?, self.returned(callee)?)),
+            } => Some((arguments.iter().find_map(source)?, self.retained(callee)?)),
             _ => None,
         }
     }
 
-    fn returned(&self, callee: &Expression) -> Option<bool> {
+    fn retained(&self, callee: &Expression) -> Option<bool> {
         let sig = match callee {
             Expression::Word { text, .. } => self.table.functions.get(text)?,
             Expression::Member { base, field, .. } => {
-                let owner = root(base)
-                    .and_then(|r| self.vars.get(&r))
-                    .and_then(|e| e.nominal.as_deref())?;
+                let owner = root(base).and_then(|r| self.vars.get(&r)?.nominal.as_deref())?;
                 self.table.method(owner, field)?
             }
             _ => return None,
         };
+        if sig.asynchronous {
+            return Some(
+                sig.inputs
+                    .iter()
+                    .flatten()
+                    .any(|s| matches!(s, Spec::Borrow { mutable: true, .. })),
+            );
+        }
         match sig.output.as_ref()? {
             Spec::Borrow { mutable, .. } => Some(*mutable),
             spec if contains(spec) => Some(false),
@@ -246,7 +259,7 @@ impl<'a> Flow<'a> {
             .any(|loan| loan.target == target && (mutable || loan.mutable))
         {
             return Err(Finding {
-                code: Code::Conflict,
+                code: self.code(),
                 line: pos.0,
                 column: pos.1,
             });

@@ -1,0 +1,22 @@
+Transport := interface {
+    send: async (self: &var Self, payload: &[u8]) -> usize
+    sync: async (self: &var Self) -> usize
+}
+
+Channel := struct {
+    queued: usize
+}
+
+Channel : Transport {
+    send: async (self: &var Channel, payload: &[u8]) -> usize {
+        self.queued += payload[0].into<usize>()
+        self.queued
+    }
+    sync: async (self: &var Channel) -> usize {
+        self.queued
+    }
+}
+
+publish := async <T: Transport>(link: &var T, payload: &[u8]) -> usize {
+    link.send(payload).await + link.sync().await
+}

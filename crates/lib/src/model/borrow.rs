@@ -94,6 +94,7 @@ impl Table {
 
     fn expression(&self, expr: &Expression, pos: (usize, usize)) -> Result<(), Finding> {
         let Expression::Function {
+            asynchronous,
             inputs,
             output,
             body,
@@ -105,7 +106,7 @@ impl Table {
         if output.as_ref().is_some_and(contains) {
             escape(inputs, body, pos)?;
         }
-        flow::verify(self, inputs, body)
+        flow::verify(self, *asynchronous, inputs, body)
     }
 }
 
@@ -157,7 +158,7 @@ pub(crate) fn contains(spec: &Spec) -> bool {
         Spec::Borrow { .. } => true,
         Spec::Slice(inner) => contains(inner),
         Spec::Named { arguments, .. } => arguments.iter().any(contains),
-        Spec::Callable { inputs, output } => {
+        Spec::Callable { inputs, output, .. } => {
             inputs.iter().any(contains) || output.as_deref().is_some_and(contains)
         }
     }

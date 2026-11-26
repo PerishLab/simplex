@@ -13,6 +13,9 @@ impl Printer {
                 self.expression(inner);
                 self.out.push(')');
             }
+            Expression::List {
+                items, multiline, ..
+            } => self.list(items, *multiline),
             Expression::Unary { operator, operand } => {
                 self.out.push_str(operator);
                 self.expression(operand);
@@ -59,15 +62,42 @@ impl Printer {
             Expression::Bucket(partition) => self.partition(partition),
             Expression::Loop(kind) => self.repetition(kind),
             Expression::Function {
+                asynchronous,
                 generics,
                 inputs,
                 output,
                 body,
             } => {
+                if *asynchronous {
+                    self.out.push_str("async ");
+                }
                 self.clauses(generics);
                 self.function(inputs, output.as_ref(), body);
             }
         }
+    }
+
+    fn list(&mut self, items: &[Expression], multiline: bool) {
+        self.out.push('[');
+        if multiline && !items.is_empty() {
+            self.out.push('\n');
+            self.indent += 1;
+            for item in items {
+                self.margin();
+                self.expression(item);
+                self.out.push_str(",\n");
+            }
+            self.indent -= 1;
+            self.margin();
+        } else {
+            for (index, item) in items.iter().enumerate() {
+                if index > 0 {
+                    self.out.push_str(", ");
+                }
+                self.expression(item);
+            }
+        }
+        self.out.push(']');
     }
 
     fn index(&mut self, base: &Expression, start: &Expression, limit: Option<&Expression>) {

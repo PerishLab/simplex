@@ -3,8 +3,8 @@ mod expr;
 
 use crate::code::{Code, Finding};
 use crate::tree::{
-    Binding, Block, Branch, Dispatch, Expression, Item, Loop, Outcome, Parameter, Partition,
-    Pattern, Program, Spec, Statement,
+    Binding, Block, Branch, Dispatch, Expression, Item, Loop, Outcome, Partition, Pattern, Program,
+    Spec, Statement,
 };
 
 pub fn render(program: &Program) -> String {
@@ -140,7 +140,14 @@ impl Printer {
                 self.spec(inner);
                 self.out.push(']');
             }
-            Spec::Callable { inputs, output } => {
+            Spec::Callable {
+                asynchronous,
+                inputs,
+                output,
+            } => {
+                if *asynchronous {
+                    self.out.push_str("async ");
+                }
                 self.out.push_str("fn(");
                 self.specs(inputs);
                 self.out.push(')');
@@ -159,21 +166,6 @@ impl Printer {
             }
             self.spec(item);
         }
-    }
-
-    pub(crate) fn parameters(&mut self, inputs: &[Parameter]) {
-        self.out.push('(');
-        for (index, param) in inputs.iter().enumerate() {
-            if index > 0 {
-                self.out.push_str(", ");
-            }
-            self.out.push_str(&param.name);
-            if let Some(spec) = &param.annotation {
-                self.out.push_str(": ");
-                self.spec(spec);
-            }
-        }
-        self.out.push(')');
     }
 
     pub(crate) fn block(&mut self, block: &Block) {

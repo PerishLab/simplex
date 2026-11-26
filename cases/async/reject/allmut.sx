@@ -1,0 +1,16 @@
+Pipe := struct {
+    sent: usize
+}
+
+flush := async (pipe: &var Pipe, quota: usize) -> usize {
+    pipe.sent += quota
+    pipe.sent
+}
+
+clash := async (pipe: &var Pipe) -> usize {
+    counts := [
+        flush(pipe, 1),
+        flush(pipe, 2),
+    ].all().await
+    counts[0] + counts[1]
+}

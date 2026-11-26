@@ -125,7 +125,7 @@ impl<'a> Surface<'a> {
     }
 
     fn binder(&self, index: usize) -> bool {
-        self.symbol(index, ":=") || self.symbol(index, "=")
+        self.symbol(index, ":=") || self.symbol(index, "=") || self.tokens[index].word("async")
     }
 
     fn close(&self, index: usize, token: &Token, generics: usize) -> Result<usize, Finding> {

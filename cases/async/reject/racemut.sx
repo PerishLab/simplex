@@ -1,0 +1,15 @@
+Pipe := struct {
+    sent: usize
+}
+
+flush := async (pipe: &var Pipe, quota: usize) -> usize {
+    pipe.sent += quota
+    pipe.sent
+}
+
+gamble := async (left: &var Pipe, right: &var Pipe) -> usize {
+    [
+        flush(left, 1),
+        flush(right, 2),
+    ].race().await
+}

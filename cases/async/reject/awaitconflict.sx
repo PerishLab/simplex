@@ -1,0 +1,22 @@
+Header := struct {
+    size: usize
+}
+
+Frame := struct {
+    header: Header
+}
+
+head := (frame: &Frame) -> &Header {
+    &frame.header
+}
+
+tick := async (step: usize) -> usize {
+    step
+}
+
+overlap := async (frame: &var Frame) -> usize {
+    view := head(frame)
+    waited := tick(1).await
+    frame.header.size += waited
+    view.size + view.size + waited
+}

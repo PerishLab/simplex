@@ -174,6 +174,12 @@ impl Inspector {
             | Expression::Text(_)
             | Expression::Byte(_) => Ok(()),
             Expression::Group(inner) | Expression::Try(inner) => self.expression(inner, depth),
+            Expression::List { items, .. } => {
+                for item in items {
+                    self.expression(item, depth)?;
+                }
+                Ok(())
+            }
             Expression::Unary { operand, .. } => self.expression(operand, depth),
             Expression::Borrow { target, .. } => self.expression(target, depth),
             Expression::Index {

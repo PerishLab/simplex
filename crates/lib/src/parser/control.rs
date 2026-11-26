@@ -174,8 +174,15 @@ impl<'a> Stream<'a> {
             self.expect("]")?;
             return Ok(Spec::Slice(Box::new(inner)));
         }
+        if self.peek().is_some_and(|tok| tok.word("async")) {
+            self.bump();
+            if !self.peek().is_some_and(|tok| tok.word("fn")) {
+                return Err(self.fault(Code::Syntax));
+            }
+            return self.signature(true);
+        }
         if self.peek().is_some_and(|tok| tok.word("fn")) {
-            return self.signature();
+            return self.signature(false);
         }
         let first = self.word()?.text.clone();
         let (module, name) =
@@ -198,7 +205,7 @@ impl<'a> Stream<'a> {
         })
     }
 
-    fn signature(&mut self) -> Result<Spec, Finding> {
+    fn signature(&mut self, asynchronous: bool) -> Result<Spec, Finding> {
         self.bump();
         self.expect("(")?;
         let inputs = self.speclist(")")?;
@@ -209,7 +216,11 @@ impl<'a> Stream<'a> {
         } else {
             None
         };
-        Ok(Spec::Callable { inputs, output })
+        Ok(Spec::Callable {
+            asynchronous,
+            inputs,
+            output,
+        })
     }
 
     pub(crate) fn speclist(&mut self, stop: &str) -> Result<Vec<Spec>, Finding> {
