@@ -1,0 +1,7 @@
+Span := struct {
+    length: usize
+}
+
+Span.end := (self: Span) -> usize {
+    self.length
+}

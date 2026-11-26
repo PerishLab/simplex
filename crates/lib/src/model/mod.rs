@@ -5,7 +5,8 @@ mod usage;
 
 use crate::code::{Code, Finding};
 use crate::tree::{
-    Contract, Enumeration, Expression, Generic, Item, Program, Spec, Statement, Structure,
+    Conformance, Contract, Enumeration, Expression, Generic, Item, Program, Spec, Statement,
+    Structure,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -25,6 +26,7 @@ pub(crate) struct Signature {
 pub(crate) struct Claim {
     pub(crate) subject: String,
     pub(crate) contract: String,
+    pub(crate) methods: Vec<String>,
     pub(crate) line: usize,
     pub(crate) column: usize,
 }
@@ -65,24 +67,7 @@ impl Table {
                 self.aliases
                     .insert(entry.name.clone(), entry.target.clone());
             }
-            Statement::Conform {
-                subject,
-                contract: Spec::Named { name, .. },
-            } => {
-                self.claims.push(Claim {
-                    subject: subject.clone(),
-                    contract: name.clone(),
-                    line: item.line,
-                    column: item.column,
-                });
-                self.satisfied.insert((subject.clone(), name.clone()));
-            }
-            Statement::Method(entry) => {
-                if let Some(sig) = callable(&entry.value) {
-                    self.methods
-                        .insert((entry.receiver.clone(), entry.name.clone()), sig);
-                }
-            }
+            Statement::Conform(entry) => self.bind(entry, (item.line, item.column)),
             Statement::Bind(binding) => {
                 if let Some(sig) = callable(&binding.value) {
                     self.functions.insert(binding.name.clone(), sig);
@@ -90,6 +75,28 @@ impl Table {
             }
             _ => {}
         }
+    }
+
+    fn bind(&mut self, entry: &Conformance, pos: (usize, usize)) {
+        let Spec::Named { name, .. } = &entry.contract else {
+            return;
+        };
+        let mut names = Vec::new();
+        for method in &entry.methods {
+            names.push(method.name.clone());
+            if let Some(sig) = callable(&method.value) {
+                self.methods
+                    .insert((entry.subject.clone(), method.name.clone()), sig);
+            }
+        }
+        self.claims.push(Claim {
+            subject: entry.subject.clone(),
+            contract: name.clone(),
+            methods: names,
+            line: pos.0,
+            column: pos.1,
+        });
+        self.satisfied.insert((entry.subject.clone(), name.clone()));
     }
 
     fn conformances(&self) -> Result<(), Finding> {
@@ -110,6 +117,13 @@ impl Table {
     }
 
     fn satisfy(&self, claim: &Claim, contract: &Contract) -> Result<(), Finding> {
+        if claim.methods.len() != contract.methods.len() {
+            return Err(Finding {
+                code: Code::Conformance,
+                line: claim.line,
+                column: claim.column,
+            });
+        }
         for req in &contract.methods {
             let key = (claim.subject.clone(), req.name.clone());
             let Some(found) = self.methods.get(&key) else {

@@ -7,8 +7,8 @@ Packet := struct {
     length: usize
 }
 
-Packet : Encoder
-
-Packet.size := (self: Packet) -> usize {
-    self.length + 2
+Packet : Encoder {
+    size: (self: Packet) -> usize {
+        self.length + 2
+    }
 }

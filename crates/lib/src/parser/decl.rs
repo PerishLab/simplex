@@ -1,7 +1,8 @@
 use super::{Stream, capitalized};
-use crate::code::{Code, Finding, Kind};
+use crate::code::{Code, Finding, Kind, Token};
 use crate::tree::{
-    Alias, Contract, Enumeration, Generic, Method, Requirement, Slot, Statement, Structure, Variant,
+    Alias, Conformance, Contract, Entry, Enumeration, Generic, Requirement, Slot, Statement,
+    Structure, Variant,
 };
 
 impl<'a> Stream<'a> {
@@ -10,7 +11,7 @@ impl<'a> Stream<'a> {
             && self.ahead(2).is_some_and(|tok| tok.kind == Kind::Word)
             && self.ahead(3).is_some_and(|tok| tok.symbol(":="))
         {
-            return self.method().map(Some);
+            return Err(self.peek().unwrap().fault(Code::Model));
         }
         let saved = self.index;
         let name = self.word()?.text.clone();
@@ -26,10 +27,7 @@ impl<'a> Stream<'a> {
             self.bump();
             let contract = self.spec()?;
             if !self.peek().is_some_and(|tok| tok.symbol("=")) {
-                return Ok(Some(Statement::Conform {
-                    subject: name,
-                    contract,
-                }));
+                return self.conformance(name, contract).map(Some);
             }
             self.index = saved;
             return Ok(None);
@@ -66,16 +64,41 @@ impl<'a> Stream<'a> {
             .is_none_or(|tok| tok.kind == Kind::Newline)
     }
 
-    fn method(&mut self) -> Result<Statement, Finding> {
-        let receiver = self.word()?.text.clone();
-        self.expect(".")?;
-        let name = self.word()?.text.clone();
-        self.expect(":=")?;
-        let value = self.expression(0)?;
-        Ok(Statement::Method(Method {
-            receiver,
-            name,
-            value,
+    fn conformance(
+        &mut self,
+        subject: String,
+        contract: crate::tree::Spec,
+    ) -> Result<Statement, Finding> {
+        let open = self.expect("{")?;
+        let mut methods = Vec::new();
+        if self.peek().is_some_and(|tok| tok.symbol("}")) {
+            self.bump();
+            return Ok(Statement::Conform(Conformance {
+                subject,
+                contract,
+                methods,
+            }));
+        }
+        if self.newlines() == 0 {
+            return Err(open.fault(Code::Format));
+        }
+        while self.peek().is_some_and(|tok| !tok.symbol("}")) {
+            let name = self.word()?.text.clone();
+            self.expect(":")?;
+            let value = self.expression(0)?;
+            if self.peek().is_some_and(|tok| tok.symbol(",")) {
+                return Err(self.peek().unwrap().fault(Code::Model));
+            }
+            if self.newlines() == 0 && !self.peek().is_some_and(closes) {
+                return Err(self.fault(Code::Model));
+            }
+            methods.push(Entry { name, value });
+        }
+        self.expect("}")?;
+        Ok(Statement::Conform(Conformance {
+            subject,
+            contract,
+            methods,
         }))
     }
 
@@ -104,7 +127,7 @@ impl<'a> Stream<'a> {
             if self.peek().is_some_and(|tok| tok.symbol(",")) {
                 return Err(self.peek().unwrap().fault(Code::Model));
             }
-            if self.newlines() == 0 && !self.peek().is_some_and(|tok| tok.symbol("}")) {
+            if self.newlines() == 0 && !self.peek().is_some_and(closes) {
                 return Err(self.fault(Code::Model));
             }
             fields.push(Slot { name: field, spec });
@@ -137,7 +160,7 @@ impl<'a> Stream<'a> {
             if self.peek().is_some_and(|tok| tok.symbol(",")) {
                 return Err(self.peek().unwrap().fault(Code::Model));
             }
-            if self.newlines() == 0 && !self.peek().is_some_and(|tok| tok.symbol("}")) {
+            if self.newlines() == 0 && !self.peek().is_some_and(closes) {
                 return Err(self.fault(Code::Model));
             }
             variants.push(Variant {
@@ -173,7 +196,7 @@ impl<'a> Stream<'a> {
             if self.peek().is_some_and(|tok| tok.symbol(",")) {
                 return Err(self.peek().unwrap().fault(Code::Model));
             }
-            if self.newlines() == 0 && !self.peek().is_some_and(|tok| tok.symbol("}")) {
+            if self.newlines() == 0 && !self.peek().is_some_and(closes) {
                 return Err(self.fault(Code::Model));
             }
             methods.push(Requirement {
@@ -216,7 +239,11 @@ impl<'a> Stream<'a> {
     }
 }
 
-fn skip(tokens: &[crate::code::Token], start: usize) -> usize {
+fn closes(tok: &Token) -> bool {
+    tok.symbol("}")
+}
+
+fn skip(tokens: &[Token], start: usize) -> usize {
     if !tokens.get(start).is_some_and(|tok| tok.symbol("<")) {
         return start;
     }

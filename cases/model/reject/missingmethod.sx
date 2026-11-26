@@ -6,4 +6,4 @@ Packet := struct {
     length: usize
 }
 
-Packet : Encoder
+Packet : Encoder {}

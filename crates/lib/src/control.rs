@@ -34,12 +34,16 @@ impl Inspector {
     fn statement(&self, stmt: &Statement, depth: usize) -> Result<(), Finding> {
         match stmt {
             Statement::Bind(binding) => self.expression(&binding.value, depth),
-            Statement::Method(method) => self.expression(&method.value, depth),
+            Statement::Conform(item) => {
+                for entry in &item.methods {
+                    self.expression(&entry.value, depth + 1)?;
+                }
+                Ok(())
+            }
             Statement::Struct(_)
             | Statement::Enum(_)
             | Statement::Interface(_)
-            | Statement::Alias(_)
-            | Statement::Conform { .. } => Ok(()),
+            | Statement::Alias(_) => Ok(()),
             Statement::Assign { target, value, .. } => {
                 self.expression(target, depth)?;
                 self.expression(value, depth)

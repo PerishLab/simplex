@@ -6,10 +6,10 @@ Packet := struct {
     length: usize
 }
 
-Packet : Encoder
-
-Packet.size := (self: Packet) -> usize {
-    self.length
+Packet : Encoder {
+    size: (self: Packet) -> usize {
+        self.length
+    }
 }
 
 Pair<A, B> := struct {

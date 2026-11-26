@@ -60,12 +60,11 @@ impl Printer {
     fn statement(&mut self, stmt: &Statement) {
         match stmt {
             Statement::Bind(binding) => self.binding(binding),
-            Statement::Method(method) => self.method(method),
             Statement::Struct(item) => self.structure(item),
             Statement::Enum(item) => self.enumeration(item),
             Statement::Interface(item) => self.contract(item),
             Statement::Alias(item) => self.alias(item),
-            Statement::Conform { subject, contract } => self.conform(subject, contract),
+            Statement::Conform(item) => self.conform(item),
             Statement::Assign {
                 target,
                 operator,

@@ -20,7 +20,11 @@ impl<'a> Counter<'a> {
     fn statement(&self, stmt: &Statement) -> usize {
         match stmt {
             Statement::Bind(binding) => self.expression(&binding.value),
-            Statement::Method(method) => self.expression(&method.value),
+            Statement::Conform(conf) => conf
+                .methods
+                .iter()
+                .map(|entry| self.expression(&entry.value))
+                .sum(),
             Statement::Assign { target, value, .. } => {
                 self.expression(target) + self.expression(value)
             }

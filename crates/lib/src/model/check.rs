@@ -67,8 +67,10 @@ impl<'a> Scope<'a> {
     fn statement(&mut self, item: &Item) -> Result<Type, Finding> {
         match &item.statement {
             Statement::Bind(binding) => self.bind(binding, (item.line, item.column)),
-            Statement::Method(method) => {
-                self.infer(&method.value)?;
+            Statement::Conform(conf) => {
+                for entry in &conf.methods {
+                    self.infer(&entry.value)?;
+                }
                 Ok(Type::Unknown)
             }
             Statement::Assign { target, value, .. } => {

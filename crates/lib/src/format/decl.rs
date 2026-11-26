@@ -1,5 +1,5 @@
 use super::Printer;
-use crate::tree::{Alias, Contract, Enumeration, Generic, Method, Spec, Structure};
+use crate::tree::{Alias, Conformance, Contract, Enumeration, Generic, Structure};
 
 impl Printer {
     pub(crate) fn clauses(&mut self, list: &[Generic]) {
@@ -27,14 +27,6 @@ impl Printer {
             }
             self.out.push_str(bound);
         }
-    }
-
-    pub(crate) fn method(&mut self, item: &Method) {
-        self.out.push_str(&item.receiver);
-        self.out.push('.');
-        self.out.push_str(&item.name);
-        self.out.push_str(" := ");
-        self.expression(&item.value);
     }
 
     pub(crate) fn structure(&mut self, item: &Structure) {
@@ -115,9 +107,28 @@ impl Printer {
         self.spec(&item.target);
     }
 
-    pub(crate) fn conform(&mut self, subject: &str, contract: &Spec) {
-        self.out.push_str(subject);
+    pub(crate) fn conform(&mut self, item: &Conformance) {
+        self.out.push_str(&item.subject);
         self.out.push_str(" : ");
-        self.spec(contract);
+        self.spec(&item.contract);
+        if item.methods.is_empty() {
+            self.out.push_str(" {}");
+            return;
+        }
+        self.out.push_str(" {\n");
+        self.indent += 1;
+        for (index, entry) in item.methods.iter().enumerate() {
+            if index > 0 {
+                self.out.push('\n');
+            }
+            self.margin();
+            self.out.push_str(&entry.name);
+            self.out.push_str(": ");
+            self.expression(&entry.value);
+        }
+        self.indent -= 1;
+        self.out.push('\n');
+        self.margin();
+        self.out.push('}');
     }
 }
