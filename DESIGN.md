@@ -113,6 +113,26 @@ accumulate.
   millisecond incremental builds so black-box integration trials run at inner-loop
   speed.
 
+## `linux-x86_64` binary ABI contract
+
+1. **Calling convention (System V AMD64)**: Up to six integer/pointer arguments
+   pass in `rdi, rsi, rdx, rcx, r8, r9`; two-word values up to `16 B` (including
+   slices `&[T] = (ptr, len)` and trait fat pointers `&Interface = (data_ptr,
+   vtable_ptr)`) pass in consecutive register pairs and return in `rax + rdx`;
+   aggregates larger than `16 B` use a hidden first-argument `sret` stack slot
+   pointer.
+2. **Deterministic `dylib` mangling**: Exported symbols use plain deterministic
+   names `sx$<ns>$<module>$<name>` and vtables use
+   `sx$vt$<ns>$<module>$<Type>$<Interface>`.
+3. **Dual-mode ELF64 emission**: Programs without `dylib` or `extern "c"`
+   dependencies emit standalone static `ET_EXEC` binaries with zero dynamic
+   interpreter; programs importing `dylib` or `extern "c"` symbols emit standard
+   `PT_INTERP` (`/lib64/ld-linux-x86-64.so.2`) dynamic segments, and `--dylib`
+   emits `ET_DYN` `.so` shared objects.
+4. **Stackful `Fiber<T>` frame**: Each spawned fiber owns an isolated `64 KiB`
+   stack above a `4 KiB` `PROT_NONE` guard page; cooperative context switches
+   save and restore only `rbx, rbp, r12..r15, rsp, rip`.
+
 ## Cold-start method
 
 Simplex's syntax and core semantics are locked in through nine orthogonal

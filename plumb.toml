@@ -3,7 +3,7 @@
 [[layout.seat]]
 path = "crates/*"
 anchor = ["Cargo.toml"]
-note = "The Simplex CLI and prototype frontend library Rust workspace members."
+note = "The Simplex CLI, frontend, HIR, x86_64 emitter, ELF64 linker and Fiber runtime workspace members."
 
 [[layout.seat]]
 path = "cases/*"
@@ -20,7 +20,7 @@ note = "Git attribute policy."
 
 [[layout.file]]
 name = ["DESIGN.md"]
-note = "Simplex language design baseline and aesthetic laws."
+note = "Simplex language design baseline, aesthetic laws and linux-x86_64 binary ABI contracts."
 
 [[layout.file]]
 name = ["Cargo.toml", "Cargo.lock"]
@@ -32,3 +32,7 @@ ns = "simplex"
 [[ectropy.grant]]
 paths = ["crates/*/tests/**/*.rs"]
 syntax = "environment"
+
+[[ectropy.grant]]
+paths = ["crates/cli/tests/**/*.rs"]
+syntax = "process"

@@ -7,7 +7,7 @@ use std::process;
 #[command(
     name = "simplex",
     version = version(),
-    about = "Simplex (.sx) prototype frontend and golden specimen verifier."
+    about = "Simplex (.sx) native compiler and golden specimen verifier."
 )]
 struct Cli {
     #[command(subcommand)]
@@ -22,6 +22,13 @@ enum Action {
     },
     Format {
         file: PathBuf,
+    },
+    Build {
+        entry: PathBuf,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+        #[arg(long)]
+        dylib: bool,
     },
 }
 
@@ -38,6 +45,11 @@ fn main() {
     match cli.command {
         Some(Action::Check { cases }) => run(&cases),
         Some(Action::Format { file }) => format(&file),
+        Some(Action::Build {
+            entry,
+            output,
+            dylib,
+        }) => build(&entry, output.as_deref(), dylib),
         None => println!("{}", simplex::name()),
     }
 }
@@ -72,4 +84,38 @@ fn format(file: &Path) {
             process::exit(1);
         }
     }
+}
+
+fn build(entry: &Path, output: Option<&Path>, shared: bool) {
+    let _ = simplex_runtime::STACK;
+    let target = output.map_or_else(|| destination(entry, shared), Path::to_path_buf);
+    let result = simplex_hir::lower("app", entry, shared)
+        .map_err(|e| e.to_string())
+        .and_then(|unit| simplex_emit::compile(&unit).map_err(|e| e.to_string()))
+        .and_then(|plan| simplex_elf::write(&plan).map_err(|e| e.to_string()))
+        .and_then(|bytes| write(&target, &bytes, shared));
+    if let Err(message) = result {
+        eprintln!("{message}");
+        process::exit(1);
+    }
+}
+
+fn destination(entry: &Path, shared: bool) -> PathBuf {
+    let stem = entry.file_stem().and_then(|s| s.to_str()).unwrap_or("out");
+    if shared {
+        PathBuf::from(format!("lib{stem}.so"))
+    } else {
+        PathBuf::from(stem)
+    }
+}
+
+fn write(path: &Path, bytes: &[u8], shared: bool) -> Result<(), String> {
+    fs::write(path, bytes).map_err(|e| format!("write failed: {e}"))?;
+    #[cfg(unix)]
+    if !shared {
+        use std::os::unix::fs::PermissionsExt;
+        let perms = fs::Permissions::from_mode(0o755);
+        fs::set_permissions(path, perms).map_err(|e| format!("chmod failed: {e}"))?;
+    }
+    Ok(())
 }

@@ -564,7 +564,36 @@ dependencies = [
  "clap",
  "plumb",
  "simplex",
+ "simplex-elf",
+ "simplex-emit",
+ "simplex-hir",
+ "simplex-runtime",
+ "tempfile",
 ]
+
+[[package]]
+name = "simplex-elf"
+version = "0.0.0"
+
+[[package]]
+name = "simplex-emit"
+version = "0.0.0"
+dependencies = [
+ "simplex-elf",
+ "simplex-hir",
+ "simplex-runtime",
+]
+
+[[package]]
+name = "simplex-hir"
+version = "0.0.0"
+dependencies = [
+ "simplex",
+]
+
+[[package]]
+name = "simplex-runtime"
+version = "0.0.0"
 
 [[package]]
 name = "strsim"
