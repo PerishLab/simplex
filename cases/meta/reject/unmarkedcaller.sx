@@ -1,0 +1,4 @@
+pub probe := (code: u64) -> u64 {
+    site := caller()
+    code ^ site.line ^ site.column
+}

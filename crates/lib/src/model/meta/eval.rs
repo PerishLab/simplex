@@ -12,6 +12,7 @@ pub(super) enum Value {
     Bool(bool),
     Tag(String, String),
     Count(usize),
+    Field(Vec<String>),
     Void,
 }
 
@@ -159,6 +160,7 @@ impl<'a> Machine<'a> {
         };
         match text.as_str() {
             "assert" => self.assertion(arguments, pos),
+            "has" => self.tagged(arguments),
             "fields" | "variants" | "size" => self.reflect(text, generics, pos),
             other => self.invoke(other, arguments, pos),
         }

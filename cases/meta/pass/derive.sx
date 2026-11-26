@@ -1,0 +1,40 @@
+Equal := interface {
+    same: (self: &Self, other: &Self) -> bool
+}
+
+Summary := interface {
+    digest: (self: &Self) -> u64
+}
+
+@derive(Equal, Summary)
+pub Endpoint := struct {
+    pub origin: str
+    @redact
+    pub token: str
+}
+
+verify := <T: Equal>(left: &T, right: &T) -> bool {
+    left.same(right)
+}
+
+count := () -> usize {
+    var hidden: usize = 0
+    comptime for field in fields<Endpoint>() {
+        hidden += switch has(field, redact) {
+            true => 1
+            false => 0
+        }
+    }
+    hidden
+}
+
+comptime {
+    assert(count() == 1)
+}
+
+pub masked := (left: &Endpoint, right: &Endpoint) -> usize {
+    switch verify(left, right) {
+        true => count()
+        false => count() + 1
+    }
+}

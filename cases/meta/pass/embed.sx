@@ -1,0 +1,6 @@
+policy := embed("rules/default.toml")
+
+pub digest := () -> u8 {
+    head := policy[0] ^ policy[1]
+    head ^ policy[2] ^ head
+}

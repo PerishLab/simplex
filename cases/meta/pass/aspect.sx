@@ -1,0 +1,24 @@
+Span := struct {
+    pub name: str
+    pub line: u64
+    pub column: u64
+}
+
+Client := interface {
+    read: async (self: &Self, key: str) -> u64
+}
+
+trace := (span: Span, step: u64) -> u64 {
+    span.line + step
+}
+
+@trace
+pub scale := (input: u64) -> u64 {
+    input + input
+}
+
+@trace
+pub fetch := async (client: &Client, key: str) -> u64 {
+    first := client.read(key).await
+    scale(first) + first
+}

@@ -1,0 +1,5 @@
+secret := embed("../secret.key")
+
+pub leak := () -> u8 {
+    secret[0] ^ secret[1]
+}

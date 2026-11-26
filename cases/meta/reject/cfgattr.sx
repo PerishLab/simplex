@@ -1,0 +1,4 @@
+@cfg(debug)
+pub endpoint := () -> u16 {
+    8080
+}

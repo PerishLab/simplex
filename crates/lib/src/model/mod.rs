@@ -16,7 +16,8 @@ use crate::tree::{
 use std::collections::{BTreeMap, BTreeSet};
 
 pub fn check(program: &Program) -> Result<(), Finding> {
-    let table = Table::build(program)?;
+    let mut table = Table::build(program)?;
+    table.decorators(program)?;
     usage::verify(&table, program)?;
     table.conformances()?;
     check::verify(&table, program)?;
@@ -53,6 +54,8 @@ pub(crate) struct Table {
     pub(crate) claims: Vec<Claim>,
     pub(crate) satisfied: BTreeSet<(String, String)>,
     pub(crate) copies: BTreeSet<String>,
+    pub(crate) callers: BTreeSet<String>,
+    pub(crate) assets: BTreeSet<String>,
 }
 
 impl Table {

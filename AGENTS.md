@@ -28,27 +28,27 @@ discipline against host-language escape hatches.
 
 Simplex owns the `.sx` general-purpose language specification, golden
 `pass / reject` specimen suites (`cases/*`), grammar, type and borrow checker,
-compile-time evaluation (`comptime`), non-LLVM native code generator and
-`dylib` ABI/linking contract.
+compile-time evaluation and typed decorators (`comptime` and `meta`), non-LLVM
+native code generator and `dylib` ABI/linking contract.
 
 ## Current baseline
 
 The repository includes the complete cold-start specification and prototype
 frontend across `M0 · Harness`, `M1 · Surface (lexical, control)`, `M2 · Model
-(model, module)` and `M3 · Seams (borrow, async, comptime, dylib)`:
+(model, module)` and `M3 · Seams (borrow, async, comptime, dylib, meta)`:
 
 - the governed Rust workspace (`crates/lib` and `crates/cli`, with dependency
-  direction `cli -> lib`), `plumb.toml` and `ectropy.toml`;
-- the eight-domain pure golden specimen layout under `cases/*` (`lexical`,
-  `control`, `model`, `module`, `borrow`, `async`, `comptime`, `dylib`), each
-  anchored by a `suite.toml` manifest mapping `reject/*.sx` specimens to exact
-  refusal codes so `.sx` files remain completely comment-free; and
+  direction `cli -> lib`) and `plumb.toml`;
+- the nine-domain pure golden specimen layout under `cases/*` (`lexical`,
+  `control`, `model`, `module`, `borrow`, `async`, `comptime`, `dylib`, `meta`),
+  each anchored by a `suite.toml` manifest mapping `reject/*.sx` specimens to
+  exact refusal codes so `.sx` files remain completely comment-free; and
 - the reviewed `lexical` (6 `pass`, 25 `reject`), `control` (5 `pass`, 21
   `reject`), `model` (5 `pass`, 19 `reject`), `module` (3 `pass`, 18 `reject`),
   `borrow` (4 `pass`, 14 `reject`), `async` (4 `pass`, 12 `reject`), `comptime`
-  (4 `pass`, 11 `reject`) and `dylib` (3 `pass`, 11 `reject`) golden suites
-  (165 specimens total) paired with zero-backtracking lexical/AST parsing,
-  `bucket` + `switch` control laws, unified `:=`
+  (4 `pass`, 11 `reject`), `dylib` (3 `pass`, 11 `reject`) and `meta` (4 `pass`,
+  9 `reject`) golden suites (178 specimens total) paired with zero-backtracking
+  lexical/AST parsing, `bucket` + `switch` control laws, unified `:=`
   `struct`/`enum`/`interface`/alias/`import`/`dylib`/`extern "c"` modeling,
   closed `Type : Interface { ... }` conformance blocks, 1:1 file-is-module
   cycle/visibility graph checks, compiler arity/depth/chain caps (`param <= 4`,
@@ -59,9 +59,13 @@ frontend across `M0 · Harness`, `M1 · Surface (lexical, control)`, `M2 · Mode
   evaluation, static assertions, `fields`/`variants`/`size` reflection and
   `comptime for` unrolling, `pub dylib` / `leaf := dylib path.leaf` ABI
   monomorphization, transparent-layout and `&Interface` boundary checks,
-  generic bound checking, local type inference with zero implicit coercion,
-  global single-meaning `_` (only `bucket`'s fallback arm), `uses >= 2` local
-  binding hygiene and byte-idempotent canonical formatting in `crates/lib` and
+  declaration/member `@` decorators (`@derive` conformance synthesis, aspect
+  signature preservation, field metadata tags via `has`), `@caller` call-site
+  provenance, package-anchored `embed` path confinement, zero built-in unit-test
+  or conditional-compilation syntax (`test` / `@test` / `@cfg` refused), generic
+  bound checking, local type inference with zero implicit coercion, global
+  single-meaning `_` (only `bucket`'s fallback arm), `uses >= 2` local binding
+  hygiene and byte-idempotent canonical formatting in `crates/lib` and
   `simplex {check,format}`.
 
 Non-LLVM native machine-code generation, dynamic linker runtime loading and
@@ -99,10 +103,12 @@ standard I/O libraries are not yet implemented; design principles live in
 - No LLVM backend dependency.
 - No tracing garbage collector.
 - No class or struct inheritance hierarchy.
+- No built-in white-box unit-test syntax (`test`, `@test`) or conditional
+  compilation split (`@cfg`) in `.sx` source.
 - No source comments, `if` statements (`only-switch`), implicit type coercions
   or multi-word local identifiers in `.sx` source.
-- No replacement for domain delivery, norm or distribution authorities
-  (`Concord`, `Plumb`, `Ectropy`, `Wharf`).
+- No replacement for domain delivery, norm, black-box trial or distribution
+  authorities (`Concord`, `Plumb`, `Ectropy`, `Seatrial`, `Wharf`).
 
 ## Native records
 

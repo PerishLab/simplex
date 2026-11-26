@@ -61,6 +61,15 @@ pub struct External {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Decorator {
+    pub module: Option<String>,
+    pub name: String,
+    pub arguments: Vec<Expression>,
+    pub line: usize,
+    pub column: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Generic {
     pub name: String,
     pub bounds: Vec<String>,
@@ -68,6 +77,7 @@ pub struct Generic {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Slot {
+    pub decorators: Vec<Decorator>,
     pub public: bool,
     pub name: String,
     pub spec: Spec,
@@ -75,6 +85,7 @@ pub struct Slot {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Structure {
+    pub decorators: Vec<Decorator>,
     pub public: bool,
     pub dynamic: bool,
     pub name: String,
@@ -84,12 +95,14 @@ pub struct Structure {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Variant {
+    pub decorators: Vec<Decorator>,
     pub name: String,
     pub payloads: Vec<Spec>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Enumeration {
+    pub decorators: Vec<Decorator>,
     pub public: bool,
     pub dynamic: bool,
     pub name: String,
@@ -138,6 +151,7 @@ pub struct Conformance {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Binding {
+    pub decorators: Vec<Decorator>,
     pub public: bool,
     pub dynamic: bool,
     pub mutable: bool,

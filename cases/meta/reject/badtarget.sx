@@ -1,0 +1,8 @@
+Header := struct {
+    pub magic: u32
+}
+
+@derive(Header)
+pub Packet := struct {
+    pub code: u32
+}

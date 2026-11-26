@@ -87,5 +87,6 @@ fn punctuation(byte: u8) -> bool {
             | b'<'
             | b'>'
             | b'?'
+            | b'@'
     )
 }

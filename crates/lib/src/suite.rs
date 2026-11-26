@@ -5,8 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::{fmt, fs};
 
-const DOMAINS: [&str; 8] = [
-    "async", "borrow", "comptime", "control", "dylib", "lexical", "model", "module",
+const DOMAINS: [&str; 9] = [
+    "async", "borrow", "comptime", "control", "dylib", "lexical", "meta", "model", "module",
 ];
 
 #[derive(Clone, Debug, PartialEq, Eq)]

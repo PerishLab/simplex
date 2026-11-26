@@ -10,6 +10,13 @@ impl<'a> Scope<'a> {
             other => other,
         };
         if let Type::Nominal(name) = &peeled {
+            if name == "Origin" {
+                return Ok(match field {
+                    "line" | "column" => Type::Scalar("u64".into()),
+                    "package" | "module" | "file" => Type::Scalar("str".into()),
+                    _ => Type::Unknown,
+                });
+            }
             if let Some(spec) = self.table.field(name, field) {
                 return Ok(self.from(&spec));
             }
@@ -60,8 +67,10 @@ impl<'a> Scope<'a> {
         if let Some(mapped) = self.mapped(callee, arguments)? {
             return Ok(mapped);
         }
-        if matches!(callee.as_ref(), Expression::Word { text, .. } if text == "size") {
-            return Ok(Type::Scalar("usize".into()));
+        if let Expression::Word { text, .. } = callee.as_ref()
+            && let Some(kind) = self.intrinsic(text, arguments)?
+        {
+            return Ok(kind);
         }
         if matches!(callee.as_ref(), Expression::Member { field, .. } if field == "len") {
             self.infer(callee)?;
@@ -79,6 +88,24 @@ impl<'a> Scope<'a> {
             return Ok(wrap(sig.asynchronous, out));
         }
         self.infer(callee)
+    }
+
+    fn intrinsic(&mut self, name: &str, arguments: &[Expression]) -> Result<Option<Type>, Finding> {
+        match name {
+            "size" => Ok(Some(Type::Scalar("usize".into()))),
+            "has" => Ok(Some(Type::Scalar("bool".into()))),
+            "caller" => Ok(Some(Type::Nominal("Origin".into()))),
+            "embed" => {
+                for arg in arguments {
+                    self.infer(arg)?;
+                }
+                Ok(Some(Type::Borrow {
+                    mutable: false,
+                    inner: Box::new(Type::Slice(Box::new(Type::Scalar("u8".into())))),
+                }))
+            }
+            _ => Ok(None),
+        }
     }
 
     fn mapped(

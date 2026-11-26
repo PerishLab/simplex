@@ -120,6 +120,7 @@ impl<'a> Stream<'a> {
         if self.peek().is_some_and(closes) {
             self.bump();
             return Ok(Statement::Struct(Structure {
+                decorators: Vec::new(),
                 public: exposure.0,
                 dynamic: exposure.1,
                 name,
@@ -131,6 +132,7 @@ impl<'a> Stream<'a> {
             return Err(open.fault(Code::Format));
         }
         while self.peek().is_some_and(|tok| !tok.symbol("}")) {
+            let decorators = self.decorators()?;
             let exposed = if self.peek().is_some_and(|tok| tok.word("pub")) {
                 self.bump();
                 true
@@ -142,6 +144,7 @@ impl<'a> Stream<'a> {
             let spec = self.spec()?;
             self.delimit()?;
             fields.push(Slot {
+                decorators,
                 public: exposed,
                 name: field,
                 spec,
@@ -149,6 +152,7 @@ impl<'a> Stream<'a> {
         }
         self.expect("}")?;
         Ok(Statement::Struct(Structure {
+            decorators: Vec::new(),
             public: exposure.0,
             dynamic: exposure.1,
             name,
@@ -170,6 +174,7 @@ impl<'a> Stream<'a> {
         }
         let mut variants = Vec::new();
         while self.peek().is_some_and(|tok| !tok.symbol("}")) {
+            let decorators = self.decorators()?;
             let label = self.word()?.text.clone();
             let payloads = if self.peek().is_some_and(|tok| tok.symbol("(")) {
                 self.bump();
@@ -181,12 +186,14 @@ impl<'a> Stream<'a> {
             };
             self.delimit()?;
             variants.push(Variant {
+                decorators,
                 name: label,
                 payloads,
             });
         }
         self.expect("}")?;
         Ok(Statement::Enum(Enumeration {
+            decorators: Vec::new(),
             public: exposure.0,
             dynamic: exposure.1,
             name,

@@ -119,6 +119,12 @@ impl<'a> Scope<'a> {
         if matches!(text, "true" | "false") {
             return Type::Scalar("bool".into());
         }
+        if self.table.assets.contains(text) {
+            return Type::Borrow {
+                mutable: false,
+                inner: Box::new(Type::Slice(Box::new(Type::Scalar("u8".into())))),
+            };
+        }
         self.locals.get(text).cloned().unwrap_or(Type::Unknown)
     }
 

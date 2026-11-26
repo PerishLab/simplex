@@ -21,8 +21,8 @@ accumulate.
 - **Benchmarking C++, Rust and Zig**: Simplex is a pure systems-grade
   general-purpose programming language focused on computation, data
   representation, deterministic memory layout and ownership, control flow,
-  concurrency (`async`), compile-time metaprogramming (`comptime`), fast native
-  machine-code generation and dynamic library (`dylib`) linking.
+  concurrency (`async`), compile-time metaprogramming (`comptime` and `meta`),
+  fast native machine-code generation and dynamic library (`dylib`) linking.
 - **No markup, layout, styling or specialized DSL scope**: Simplex does not
   solve markup, layout, styling or other specialized/future domain-specific
   language (DSL) problems. It neither absorbs declarative DSL sub-languages
@@ -40,7 +40,7 @@ accumulate.
   import` re-exports, zero cyclic imports and string-quarantined C FFI bindings
   (`name := extern "c" "symbol" fn(...)`).
 - **`no comment`**: The `.sx` grammar has no line or block comments. Intent that
-  cannot be expressed through names, types, exhaustive structure and tests
+  cannot be expressed through names, types, exhaustive structure and contracts
   belongs in governed design or Issue records, never inline excuses.
 - **`bucket` + `switch` and first-class functions (`no-if`, `no-while`, `no-return`)**:
   There is no `if`, `while` or `return` construct. Open conditions and
@@ -86,27 +86,36 @@ accumulate.
   `.race().await`, with compile-time linear settlement (forbidding detached
   fibers) and NLL borrow tracking across suspension points.
 
-### 4. Metaprogramming, compilation and linking
+### 4. Metaprogramming, compilation, linking and verification
 
-- **Isomorphic `comptime` metaprogramming (no token macros)**: Compile-time
-  evaluation (`comptime { ... }`, `comptime` parameters, `assert`,
+- **Isomorphic `comptime` and typed `@` decorators (no token macros)**:
+  Compile-time evaluation (`comptime { ... }`, `comptime` parameters, `assert`,
   `fields<T>()` / `variants<T>()` / `size<T>()` reflection and `comptime for`
-  field unrolling) executes ordinary pure `.sx` code without `const fn` coloring
-  or `TokenStream`/bang macros, bounded by a deterministic step budget and
-  isolated from host I/O, FFI and `async` effects.
-- **`no llvm`**: Native machine-code generation without LLVM, optimizing for
-  sub-second edit-compile-verify turnaround instead of multi-minute backend
-  passes and build-lock contention.
-- **First-class `dylib` ABI boundary**: Dynamic libraries are a primary modular
-  compilation and linking boundary (`pub dylib` exports + `leaf := dylib
-  path.leaf` imports), supporting zero-`dyn` `&Interface` fat-pointer dispatch
-  and caller-provided `&[T]` / `&var [T]` slice borrows while statically
-  requiring library-internal generic/`comptime` monomorphization and transparent
-  ABI-safe layouts.
+  field unrolling) pairs with declaration-level and member-level `@` decorators
+  — zero separate `proc-macro` crate or `TokenStream` soup. Function decorators
+  wrap synchronous and `async` functions inline without altering their
+  signatures; `@derive(...)` synthesizes closed `Type : Interface` conformances
+  without mutating transparent `struct` layouts; field tags are inspected via
+  `has(field, tag)`; `@caller` injects zero-noise call-site provenance via
+  `caller()`; and `embed("...")` confines read-only static assets strictly
+  inside the package root. Expression-level AST rewrite macros are forbidden.
+- **Zero unit-test syntax and zero `cfg` binary split**: Simplex permanently
+  omits built-in unit-test constructs (`test` blocks, `@test`) and conditional
+  compilation gates (`@cfg`). Every `.sx` source tree compiles into one exact
+  production artifact; local invariants belong in `comptime { assert(...) }`,
+  and behavioral contracts are verified exclusively through fast native builds
+  paired with isolated black-box process trials (`Seatrial`) and function-level
+  causal observation (`Locus`).
+- **`no llvm` and first-class `dylib` ABI boundary**: Native machine-code
+  generation without LLVM pairs with `pub dylib` / `leaf := dylib path.leaf`
+  dynamic library boundaries (zero-`dyn` `&Interface` fat-pointer dispatch,
+  library-internal monomorphization and transparent layouts), targeting
+  millisecond incremental builds so black-box integration trials run at inner-loop
+  speed.
 
 ## Cold-start method
 
-Simplex's syntax and core semantics are locked in through eight orthogonal
+Simplex's syntax and core semantics are locked in through nine orthogonal
 `pass / reject` golden specimen suites (`cases/<domain>`) paired with a thin
 Rust prototype frontend (`crates/`):
 

@@ -28,3 +28,7 @@ note = "Rust workspace anchors."
 
 [identity]
 ns = "simplex"
+
+[[ectropy.grant]]
+paths = ["crates/*/tests/**/*.rs"]
+syntax = "environment"

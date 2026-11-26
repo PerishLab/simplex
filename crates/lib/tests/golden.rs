@@ -6,9 +6,9 @@ use std::path::Path;
 fn repository() {
     let root = Path::new("../../cases");
     let report = verify(root).expect("golden suite clean");
-    assert_eq!(report.domains, 8);
-    assert_eq!(report.passed, 34);
-    assert_eq!(report.rejected, 131);
+    assert_eq!(report.domains, 9);
+    assert_eq!(report.passed, 38);
+    assert_eq!(report.rejected, 140);
 }
 
 #[test]
@@ -67,7 +67,7 @@ fn laws() {
 fn unlisted() {
     let dir = tempfile::tempdir().expect("tempdir");
     for domain in [
-        "async", "borrow", "comptime", "control", "dylib", "lexical", "model", "module",
+        "async", "borrow", "comptime", "control", "dylib", "lexical", "meta", "model", "module",
     ] {
         let sub = dir.path().join(domain);
         fs::create_dir_all(sub.join("reject")).expect("mkdir");

@@ -39,15 +39,60 @@ impl<'a> Machine<'a> {
                 Ok(Value::Void)
             }
             Statement::For {
+                constant,
                 item: name,
                 source,
                 body,
-                ..
-            } => self.range(name, source, &body.items),
+            } => {
+                if *constant {
+                    self.unrolled(name, source, &body.items)
+                } else {
+                    self.range(name, source, &body.items)
+                }
+            }
             Statement::Loop(k) => self.repetition(k),
             Statement::Evaluate(e) => self.eval(e),
             _ => Ok(Value::Void),
         }
+    }
+
+    pub(super) fn tagged(&mut self, args: &[Expression]) -> Result<Value, Signal> {
+        let [first, Expression::Word { text: tag, .. }] = args else {
+            return Ok(Value::Bool(false));
+        };
+        let Value::Field(tags) = self.eval(first)? else {
+            return Ok(Value::Bool(false));
+        };
+        Ok(Value::Bool(tags.contains(tag)))
+    }
+
+    fn unrolled(
+        &mut self,
+        name: &str,
+        source: &Expression,
+        body: &[Item],
+    ) -> Result<Value, Signal> {
+        let Expression::Call {
+            callee, generics, ..
+        } = source
+        else {
+            return self.range(name, source, body);
+        };
+        if !matches!(callee.as_ref(), Expression::Word { text, .. } if text == "fields") {
+            return Ok(Value::Void);
+        }
+        let Some(owner) = generics.first().and_then(|s| self.table.nominal(s)) else {
+            return Ok(Value::Void);
+        };
+        let Some(structure) = self.table.structs.get(&owner).cloned() else {
+            return Ok(Value::Void);
+        };
+        for slot in &structure.fields {
+            let tags = slot.decorators.iter().map(|d| d.name.clone()).collect();
+            self.vars.insert(name.to_owned(), Value::Field(tags));
+            self.items(body)?;
+        }
+        Ok(Value::Void)
     }
 
     fn range(&mut self, name: &str, source: &Expression, body: &[Item]) -> Result<Value, Signal> {

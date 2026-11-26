@@ -1,5 +1,6 @@
 mod control;
 mod decl;
+mod decorator;
 mod expr;
 mod imports;
 mod postfix;
@@ -108,6 +109,9 @@ impl<'a> Stream<'a> {
         let Some(token) = self.peek() else {
             return Err(self.fault(Code::Syntax));
         };
+        if token.symbol("@") {
+            return self.decorated(braced);
+        }
         if token.word("pub") {
             return self.exposed(braced);
         }
@@ -199,6 +203,7 @@ impl<'a> Stream<'a> {
             self.bump();
             let value = self.expression(0)?;
             return Ok(Binding {
+                decorators: Vec::new(),
                 public: exposure.0,
                 dynamic: exposure.1,
                 mutable: false,
@@ -212,6 +217,7 @@ impl<'a> Stream<'a> {
         self.expect("=")?;
         let value = self.expression(0)?;
         Ok(Binding {
+            decorators: Vec::new(),
             public: exposure.0,
             dynamic: exposure.1,
             mutable: false,
@@ -265,6 +271,9 @@ fn banned(token: &Token, second: Option<&Token>) -> Option<Code> {
         "import" => Some(Code::Import),
         "dylib" => Some(Code::Boundary),
         "extern" => Some(Code::Extern),
+        "test" if second.is_some_and(|next| next.kind == Kind::Text || next.symbol("{")) => {
+            Some(Code::Test)
+        }
         _ => None,
     }
 }
