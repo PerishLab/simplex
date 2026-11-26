@@ -97,10 +97,10 @@ impl<'a> Access<'a> {
             } => {
                 if let Some(prefix) = module
                     && let Some(exports) = self.modules.get(prefix)
-                    && !exports.types.get(name).copied().unwrap_or(false)
+                    && let Some(code) = exports.kind(name)
                 {
                     return Err(Finding {
-                        code: Code::Visibility,
+                        code,
                         line: pos.0,
                         column: pos.1,
                     });
@@ -212,10 +212,10 @@ impl<'a> Access<'a> {
         };
         if let Expression::Word { text, .. } = base.as_ref() {
             if let Some(exports) = self.modules.get(text)
-                && !exports.exposed(field)
+                && let Some(code) = exports.value(field)
             {
                 return Err(Finding {
-                    code: Code::Visibility,
+                    code,
                     line: *line,
                     column: *column,
                 });
@@ -250,10 +250,10 @@ impl<'a> Access<'a> {
         };
         if let Some(prefix) = module
             && let Some(exports) = self.modules.get(prefix)
-            && !exports.constructible(name)
+            && let Some(code) = exports.constructible(name)
         {
             return Err(Finding {
-                code: Code::Visibility,
+                code,
                 line: *line,
                 column: *column,
             });

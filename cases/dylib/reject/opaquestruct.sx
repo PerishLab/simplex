@@ -1,0 +1,4 @@
+pub dylib Packet := struct {
+    pub magic: u32
+    secret: u32
+}

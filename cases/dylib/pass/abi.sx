@@ -1,0 +1,22 @@
+pub dylib Code := enum {
+    ok
+    retry
+    fault
+}
+
+pub dylib Packet := struct {
+    pub tag: u32
+    pub flags: u32
+    pub sequence: u64
+}
+
+comptime {
+    assert(size<Packet>() == 16)
+    assert(variants<Code>().len() == 3)
+}
+
+pub dylib classify := (packet: &Packet) bucket packet.flags {
+    0 => Code.ok
+    1..4 => Code.retry
+    _ => Code.fault
+}

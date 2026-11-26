@@ -1,5 +1,6 @@
 mod access;
 mod graph;
+mod shared;
 
 use crate::code::{Code, Finding};
 use crate::tree::{
@@ -22,6 +23,7 @@ pub fn check(file: Option<&str>, dir: Option<&Path>, program: &Program) -> Resul
         });
     }
     Topology.items(&program.items)?;
+    shared::verify(program)?;
     if let (Some(name), Some(folder)) = (file, dir) {
         graph::verify(name, folder, program)?;
     }

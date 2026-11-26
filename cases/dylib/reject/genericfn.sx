@@ -1,0 +1,3 @@
+pub dylib mirror := <T>(value: T) -> T {
+    value
+}

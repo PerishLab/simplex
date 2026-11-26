@@ -1,0 +1,21 @@
+codec := dylib codec
+
+Xor := struct {
+    key: u8
+}
+
+Xor : codec.Codec {
+    encode: (self: &Xor, input: &[u8], output: &var [u8]) -> usize {
+        output[0] = input[0] ^ self.key
+        1
+    }
+}
+
+pub run := (header: &codec.Header, input: &[u8], output: &var [u8], key: u8) -> u64 {
+    cipher := Xor { key: key }
+    step := codec.transcode(&cipher, input, &var output[0..2])
+    rest := &input[step..4]
+    codec.digest(header) +
+        codec.transcode(&cipher, rest, &var output[step..4]).into<u64>() +
+        rest[0].into<u64>()
+}

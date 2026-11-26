@@ -1,0 +1,3 @@
+pub dylib Boxed<T> := struct {
+    pub item: T
+}

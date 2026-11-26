@@ -1,0 +1,3 @@
+pub dylib fetch := async (key: u64) -> u64 {
+    key
+}

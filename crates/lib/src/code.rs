@@ -121,6 +121,12 @@ pub enum Code {
     Budget,
     #[serde(rename = "comptime.target")]
     Target,
+    #[serde(rename = "dylib.generic")]
+    Generic,
+    #[serde(rename = "dylib.layout")]
+    Layout,
+    #[serde(rename = "dylib.visibility")]
+    Boundary,
 }
 
 impl Code {
@@ -185,6 +191,9 @@ impl Code {
             Self::Effect => "comptime.effect",
             Self::Budget => "comptime.budget",
             Self::Target => "comptime.target",
+            Self::Generic => "dylib.generic",
+            Self::Layout => "dylib.layout",
+            Self::Boundary => "dylib.visibility",
         }
     }
 }

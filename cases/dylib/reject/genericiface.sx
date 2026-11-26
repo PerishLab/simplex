@@ -1,0 +1,3 @@
+pub dylib Mapper<T> := interface {
+    apply: (self: &Self, item: T) -> T
+}

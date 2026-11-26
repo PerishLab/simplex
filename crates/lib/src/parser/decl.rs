@@ -6,7 +6,7 @@ use crate::tree::{
 };
 
 impl<'a> Stream<'a> {
-    pub(crate) fn nominal(&mut self, public: bool) -> Result<Option<Statement>, Finding> {
+    pub(crate) fn nominal(&mut self, exposure: (bool, bool)) -> Result<Option<Statement>, Finding> {
         if self.ahead(1).is_some_and(|tok| tok.symbol("."))
             && self.ahead(2).is_some_and(|tok| tok.kind == Kind::Word)
             && self.ahead(3).is_some_and(|tok| tok.symbol(":="))
@@ -23,7 +23,7 @@ impl<'a> Stream<'a> {
         } else {
             Vec::new()
         };
-        if !public && self.peek().is_some_and(|tok| tok.symbol(":")) && generics.is_empty() {
+        if !exposure.0 && self.peek().is_some_and(|tok| tok.symbol(":")) && generics.is_empty() {
             self.bump();
             let contract = self.spec()?;
             if !self.peek().is_some_and(|tok| tok.symbol("=")) {
@@ -37,23 +37,24 @@ impl<'a> Stream<'a> {
             return Ok(None);
         }
         self.bump();
-        self.definition(public, name, generics)
+        self.definition(exposure, name, generics)
     }
 
     fn definition(
         &mut self,
-        public: bool,
+        exposure: (bool, bool),
         name: String,
         generics: Vec<Generic>,
     ) -> Result<Option<Statement>, Finding> {
         match self.peek() {
-            Some(tok) if tok.word("struct") => self.structure(public, name, generics).map(Some),
-            Some(tok) if tok.word("enum") => self.enumeration(public, name, generics).map(Some),
-            Some(tok) if tok.word("interface") => self.contract(public, name, generics).map(Some),
+            Some(tok) if tok.word("struct") => self.structure(exposure, name, generics).map(Some),
+            Some(tok) if tok.word("enum") => self.enumeration(exposure, name, generics).map(Some),
+            Some(tok) if tok.word("interface") => self.contract(exposure, name, generics).map(Some),
             Some(tok) if tok.kind == Kind::Word && self.aliased() => {
                 let target = self.spec()?;
                 Ok(Some(Statement::Alias(Alias {
-                    public,
+                    public: exposure.0,
+                    dynamic: exposure.1,
                     name,
                     generics,
                     target,
@@ -106,7 +107,7 @@ impl<'a> Stream<'a> {
 
     fn structure(
         &mut self,
-        public: bool,
+        exposure: (bool, bool),
         name: String,
         generics: Vec<Generic>,
     ) -> Result<Statement, Finding> {
@@ -119,7 +120,8 @@ impl<'a> Stream<'a> {
         if self.peek().is_some_and(closes) {
             self.bump();
             return Ok(Statement::Struct(Structure {
-                public,
+                public: exposure.0,
+                dynamic: exposure.1,
                 name,
                 generics,
                 fields,
@@ -147,7 +149,8 @@ impl<'a> Stream<'a> {
         }
         self.expect("}")?;
         Ok(Statement::Struct(Structure {
-            public,
+            public: exposure.0,
+            dynamic: exposure.1,
             name,
             generics,
             fields,
@@ -156,7 +159,7 @@ impl<'a> Stream<'a> {
 
     fn enumeration(
         &mut self,
-        public: bool,
+        exposure: (bool, bool),
         name: String,
         generics: Vec<Generic>,
     ) -> Result<Statement, Finding> {
@@ -184,7 +187,8 @@ impl<'a> Stream<'a> {
         }
         self.expect("}")?;
         Ok(Statement::Enum(Enumeration {
-            public,
+            public: exposure.0,
+            dynamic: exposure.1,
             name,
             generics,
             variants,
@@ -193,7 +197,7 @@ impl<'a> Stream<'a> {
 
     fn contract(
         &mut self,
-        public: bool,
+        exposure: (bool, bool),
         name: String,
         generics: Vec<Generic>,
     ) -> Result<Statement, Finding> {
@@ -229,7 +233,8 @@ impl<'a> Stream<'a> {
         }
         self.expect("}")?;
         Ok(Statement::Interface(Contract {
-            public,
+            public: exposure.0,
+            dynamic: exposure.1,
             name,
             generics,
             methods,
@@ -244,31 +249,6 @@ impl<'a> Stream<'a> {
             return Err(self.fault(Code::Model));
         }
         Ok(())
-    }
-
-    pub(crate) fn clauses(&mut self) -> Result<Vec<Generic>, Finding> {
-        self.expect("<")?;
-        let mut list = Vec::new();
-        while self.peek().is_some_and(|tok| !tok.symbol(">")) {
-            let name = self.word()?.text.clone();
-            let mut bounds = Vec::new();
-            if self.peek().is_some_and(|tok| tok.symbol(":")) {
-                self.bump();
-                bounds.push(self.word()?.text.clone());
-                while self.peek().is_some_and(|tok| tok.symbol("+")) {
-                    self.bump();
-                    bounds.push(self.word()?.text.clone());
-                }
-            }
-            list.push(Generic { name, bounds });
-            if self.peek().is_some_and(|tok| tok.symbol(",")) {
-                self.bump();
-            } else {
-                break;
-            }
-        }
-        self.expect(">")?;
-        Ok(list)
     }
 }
 

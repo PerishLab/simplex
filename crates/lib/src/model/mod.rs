@@ -106,7 +106,7 @@ impl Table {
     }
 
     fn bind(&mut self, entry: &Conformance, pos: (usize, usize)) {
-        let Spec::Named { name, .. } = &entry.contract else {
+        let Spec::Named { module, name, .. } = &entry.contract else {
             return;
         };
         let mut names = Vec::new();
@@ -116,6 +116,9 @@ impl Table {
                 self.methods
                     .insert((entry.subject.clone(), method.name.clone()), sig);
             }
+        }
+        if module.is_some() {
+            return;
         }
         if name == "Copy" {
             self.copies.insert(entry.subject.clone());

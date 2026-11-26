@@ -4,6 +4,14 @@ use crate::tree::{
 };
 
 impl Printer {
+    pub(crate) fn visibility(&mut self, public: bool, dynamic: bool) {
+        if dynamic {
+            self.out.push_str("pub dylib ");
+        } else if public {
+            self.out.push_str("pub ");
+        }
+    }
+
     pub(crate) fn parameters(&mut self, inputs: &[Parameter]) {
         self.out.push('(');
         for (index, param) in inputs.iter().enumerate() {
@@ -24,7 +32,11 @@ impl Printer {
 
     pub(crate) fn imported(&mut self, item: &Import) {
         self.out.push_str(&item.name);
-        self.out.push_str(" := import ");
+        self.out.push_str(if item.dynamic {
+            " := dylib "
+        } else {
+            " := import "
+        });
         for (index, part) in item.path.iter().enumerate() {
             if index > 0 {
                 self.out.push('.');
@@ -34,9 +46,7 @@ impl Printer {
     }
 
     pub(crate) fn external(&mut self, item: &External) {
-        if item.public {
-            self.out.push_str("pub ");
-        }
+        self.visibility(item.public, item.dynamic);
         self.out.push_str(&item.name);
         self.out.push_str(" := extern ");
         self.out.push_str(&item.abi);
@@ -78,9 +88,7 @@ impl Printer {
     }
 
     pub(crate) fn structure(&mut self, item: &Structure) {
-        if item.public {
-            self.out.push_str("pub ");
-        }
+        self.visibility(item.public, item.dynamic);
         self.out.push_str(&item.name);
         self.clauses(&item.generics);
         if item.fields.is_empty() {
@@ -108,9 +116,7 @@ impl Printer {
     }
 
     pub(crate) fn enumeration(&mut self, item: &Enumeration) {
-        if item.public {
-            self.out.push_str("pub ");
-        }
+        self.visibility(item.public, item.dynamic);
         self.out.push_str(&item.name);
         self.clauses(&item.generics);
         self.out.push_str(" := enum {\n");
@@ -123,7 +129,7 @@ impl Printer {
             self.out.push_str(&variant.name);
             if !variant.payloads.is_empty() {
                 self.out.push('(');
-                self.specs(&variant.payloads);
+                self.specs(&item.variants[index].payloads);
                 self.out.push(')');
             }
         }
@@ -134,9 +140,7 @@ impl Printer {
     }
 
     pub(crate) fn contract(&mut self, item: &Contract) {
-        if item.public {
-            self.out.push_str("pub ");
-        }
+        self.visibility(item.public, item.dynamic);
         self.out.push_str(&item.name);
         self.clauses(&item.generics);
         self.out.push_str(" := interface {\n");
@@ -164,9 +168,7 @@ impl Printer {
     }
 
     pub(crate) fn alias(&mut self, item: &Alias) {
-        if item.public {
-            self.out.push_str("pub ");
-        }
+        self.visibility(item.public, item.dynamic);
         self.out.push_str(&item.name);
         self.clauses(&item.generics);
         self.out.push_str(" := ");

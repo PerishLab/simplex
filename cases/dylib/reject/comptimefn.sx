@@ -1,0 +1,3 @@
+pub dylib align := (offset: usize, comptime stride: usize) -> usize {
+    offset + stride
+}
