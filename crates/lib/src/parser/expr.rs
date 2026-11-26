@@ -38,12 +38,12 @@ impl<'a> Stream<'a> {
             "||" => 1,
             "&&" => 2,
             "==" | "!=" | "<" | "<=" | ">" | ">=" => 3,
-            "|" => return None,
-            "^" => 4,
-            "&" => 5,
-            "<<" | ">>" => 6,
-            "+" | "-" => 7,
-            "*" | "/" | "%" => 8,
+            "|" => 4,
+            "^" => 5,
+            "&" => 6,
+            "<<" | ">>" => 7,
+            "+" | "-" => 8,
+            "*" | "/" | "%" => 9,
             _ => return None,
         };
         Some((power, tok.text.clone()))
@@ -70,6 +70,10 @@ impl<'a> Stream<'a> {
         if tok.word("loop") {
             let start = self.bump().unwrap();
             return Ok(Expression::Loop(Box::new(self.repetition(start)?)));
+        }
+        if tok.word("comptime") {
+            self.bump();
+            return Ok(Expression::Meta(self.block()?));
         }
         if tok.word("async") {
             self.bump();
@@ -251,10 +255,11 @@ impl<'a> Stream<'a> {
 }
 
 fn typed(inner: &[Token]) -> bool {
-    inner[0].kind == Kind::Word
-        && inner
-            .get(1)
-            .is_some_and(|tok| tok.symbol(":") || tok.symbol(","))
+    inner[0].word("comptime")
+        || (inner[0].kind == Kind::Word
+            && inner
+                .get(1)
+                .is_some_and(|tok| tok.symbol(":") || tok.symbol(",")))
 }
 
 fn trigger(after: &Token) -> bool {

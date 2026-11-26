@@ -1,0 +1,19 @@
+Nested := struct {
+    code: u16
+}
+
+Broken := struct {
+    inner: Nested
+}
+
+fold := <T>(target: &T) -> u64 {
+    var acc: u64 = 0
+    comptime for field in fields<T>() {
+        acc += get(target, field).into<u64>()
+    }
+    acc
+}
+
+check := (item: &Broken) -> u64 {
+    fold(item)
+}

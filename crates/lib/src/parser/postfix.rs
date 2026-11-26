@@ -67,9 +67,15 @@ impl<'a> Stream<'a> {
                 base = self.index(base)?;
             } else if self
                 .peek()
+                .is_some_and(|tok| tok.symbol("<") && !tok.spaced)
+            {
+                let generics = self.generics()?;
+                base = self.call(base, generics)?;
+            } else if self
+                .peek()
                 .is_some_and(|tok| tok.symbol("(") && !tok.spaced)
             {
-                base = self.call(base)?;
+                base = self.call(base, Vec::new())?;
             } else if self
                 .peek()
                 .is_some_and(|tok| tok.symbol("?") && !tok.spaced)
@@ -153,7 +159,7 @@ impl<'a> Stream<'a> {
         })
     }
 
-    fn call(&mut self, callee: Expression) -> Result<Expression, Finding> {
+    fn call(&mut self, callee: Expression, generics: Vec<Spec>) -> Result<Expression, Finding> {
         let open = self.expect("(")?;
         let (line, column) = (open.line, open.column);
         let multiline = self.newlines() > 0;
@@ -171,6 +177,7 @@ impl<'a> Stream<'a> {
         self.expect(")")?;
         Ok(Expression::Call {
             callee: Box::new(callee),
+            generics,
             arguments,
             multiline,
             line,

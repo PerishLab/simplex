@@ -111,10 +111,11 @@ impl<'a> Stream<'a> {
             self.bump();
             return Ok(Pattern::Wildcard);
         }
-        let first = self.expression(0)?;
+        let limit = if predicate { 0 } else { 5 };
+        let first = self.expression(limit)?;
         if self.peek().is_some_and(|tok| tok.symbol("..")) {
             self.bump();
-            let end = self.expression(0)?;
+            let end = self.expression(limit)?;
             return Ok(Pattern::Range { start: first, end });
         }
         if predicate {
@@ -123,7 +124,7 @@ impl<'a> Stream<'a> {
         let mut choices = vec![first];
         while self.peek().is_some_and(|tok| tok.symbol("|")) {
             self.bump();
-            choices.push(self.expression(0)?);
+            choices.push(self.expression(limit)?);
         }
         Ok(Pattern::Choices(choices))
     }
@@ -240,6 +241,12 @@ impl<'a> Stream<'a> {
         self.expect("(")?;
         let mut list = Vec::new();
         while self.peek().is_some_and(|tok| !tok.symbol(")")) {
+            let constant = if self.peek().is_some_and(|tok| tok.word("comptime")) {
+                self.bump();
+                true
+            } else {
+                false
+            };
             let word = self.word()?;
             let (name, line, column) = (word.text.clone(), word.line, word.column);
             let annotation = if self.peek().is_some_and(|tok| tok.symbol(":")) {
@@ -249,6 +256,7 @@ impl<'a> Stream<'a> {
                 None
             };
             list.push(Parameter {
+                constant,
                 name,
                 annotation,
                 line,

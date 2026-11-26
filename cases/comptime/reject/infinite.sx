@@ -1,0 +1,7 @@
+stuck := comptime {
+    var count: u64 = 0
+    loop {
+        count += 1
+    }
+    count
+}

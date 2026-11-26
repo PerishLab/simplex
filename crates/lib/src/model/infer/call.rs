@@ -54,6 +54,13 @@ impl<'a> Scope<'a> {
         if let Some(mapped) = self.mapped(callee, arguments)? {
             return Ok(mapped);
         }
+        if matches!(callee.as_ref(), Expression::Word { text, .. } if text == "size") {
+            return Ok(Type::Scalar("usize".into()));
+        }
+        if matches!(callee.as_ref(), Expression::Member { field, .. } if field == "len") {
+            self.infer(callee)?;
+            return Ok(Type::Scalar("usize".into()));
+        }
         let mut actuals = Vec::new();
         for arg in arguments {
             actuals.push(self.infer(arg)?);

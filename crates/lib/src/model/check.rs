@@ -115,10 +115,16 @@ impl<'a> Scope<'a> {
                 item: name,
                 source,
                 body,
+                ..
             } => {
-                self.infer(source)?;
+                let kind = self.infer(source)?;
                 let mut inner = self.child();
-                inner.locals.insert(name.clone(), Type::Unknown);
+                let elem = if matches!(kind, Type::Integer) {
+                    Type::Integer
+                } else {
+                    Type::Unknown
+                };
+                inner.locals.insert(name.clone(), elem);
                 inner.block(body)?;
                 Ok(Type::Unknown)
             }

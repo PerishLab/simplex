@@ -5,7 +5,7 @@ mod imports;
 mod postfix;
 
 use crate::code::{Code, Finding, Kind, Token};
-use crate::tree::{Binding, Item, Program, Statement};
+use crate::tree::{Binding, Expression, Item, Program, Statement};
 
 pub fn parse(tokens: &[Token]) -> Result<Program, Finding> {
     let mut stream = Stream { tokens, index: 0 };
@@ -117,8 +117,12 @@ impl<'a> Stream<'a> {
         if token.word("var") {
             return self.variable();
         }
+        if token.word("comptime") && self.ahead(1).is_some_and(|next| next.word("for")) {
+            self.bump();
+            return self.iteration(true);
+        }
         if token.word("for") {
-            return self.iteration();
+            return self.iteration(false);
         }
         if token.word("loop") {
             let start = self.bump().unwrap();
@@ -209,16 +213,36 @@ impl<'a> Stream<'a> {
         })
     }
 
-    fn iteration(&mut self) -> Result<Statement, Finding> {
+    fn iteration(&mut self, constant: bool) -> Result<Statement, Finding> {
         self.bump();
         let item = self.word()?.text.clone();
         let keyword = self.word()?;
         if keyword.text != "in" {
             return Err(keyword.fault(Code::Syntax));
         }
-        let source = self.expression(0)?;
+        let first = self.expression(0)?;
+        let source = if self.peek().is_some_and(|tok| tok.symbol("..")) {
+            let dots = self.bump().unwrap();
+            let (line, column) = (dots.line, dots.column);
+            let right = self.expression(0)?;
+            Expression::Binary {
+                left: Box::new(first),
+                operator: "..".into(),
+                right: Box::new(right),
+                wrapped: false,
+                line,
+                column,
+            }
+        } else {
+            first
+        };
         let body = self.block()?;
-        Ok(Statement::For { item, source, body })
+        Ok(Statement::For {
+            constant,
+            item,
+            source,
+            body,
+        })
     }
 }
 

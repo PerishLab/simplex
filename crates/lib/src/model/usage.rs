@@ -77,6 +77,7 @@ impl<'a> Scanner<'a> {
                 item: name,
                 source,
                 body,
+                ..
             } => {
                 if name == "_" {
                     return Err(Finding {
@@ -191,6 +192,7 @@ impl<'a> Scanner<'a> {
                 self.expression(callee)?;
                 self.many(arguments)
             }
+            Expression::Meta(block) => self.block(block),
             Expression::Record { fields, .. } => {
                 for field in fields {
                     self.expression(&field.value)?;

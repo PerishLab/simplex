@@ -1,0 +1,3 @@
+count := comptime {
+    fields<u64>().len()
+}

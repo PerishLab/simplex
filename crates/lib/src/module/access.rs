@@ -176,11 +176,20 @@ impl<'a> Access<'a> {
             }
             Expression::Member { .. } => self.member(expr),
             Expression::Call {
-                callee, arguments, ..
+                callee,
+                generics,
+                arguments,
+                line,
+                column,
+                ..
             } => {
+                for spec in generics {
+                    self.spec(spec, (*line, *column))?;
+                }
                 self.expression(callee)?;
                 self.many(arguments)
             }
+            Expression::Meta(block) => self.child().items(&block.items),
             Expression::Record { .. } => self.record(expr),
             Expression::Switch(dispatch) => self.dispatch(dispatch),
             Expression::Bucket(partition) => self.partition(partition),

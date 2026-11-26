@@ -1,0 +1,7 @@
+Header := struct {
+    magic: u32
+}
+
+count := comptime {
+    variants<Header>().len()
+}

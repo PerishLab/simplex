@@ -206,6 +206,7 @@ impl Inspector {
                 }
                 Ok(())
             }
+            Expression::Meta(block) => self.block(block, depth + 1),
             Expression::Record { fields, .. } => {
                 for field in fields {
                     self.expression(&field.value, depth)?;
