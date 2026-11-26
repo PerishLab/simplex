@@ -101,7 +101,7 @@ pub fn write(plan: &Plan) -> Result<Vec<u8>, Fault> {
     if plan.code.is_empty() && plan.mode != Mode::Shared {
         return Err(Fault::Empty);
     }
-    if plan.mode != Mode::Standalone {
+    if plan.mode == Mode::Shared {
         return Err(Fault::Unsupported(plan.mode));
     }
     image::Writer::new(plan)?.emit()
