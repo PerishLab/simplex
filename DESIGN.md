@@ -2,24 +2,39 @@
 
 *Simplex sigillum veri.*
 
-Simplex (`.sx`) is a programming language conceived for PerishLab's human-agent
-collaboration paradigm. Its north star is a single aesthetic and engineering
-invariant:
+Simplex (`.sx`) is a **general-purpose programming language** conceived for
+PerishLab's human-agent collaboration paradigm. Its north star is a single
+aesthetic and engineering invariant:
 
 > **Any `.sx` program that passes compilation already looks clean, clear and
 > comfortable to read.**
 
 Rather than relying on style guides, linter suppressions or reviewer policing
 after the fact, Simplex removes the syntactic and architectural degrees of
-freedom through which visual entropy and build latency accumulate.
+freedom through which visual entropy, dialect fragmentation and build latency
+accumulate.
 
 ## Core principles
 
-### 1. Visual and structural laws by construction
+### 1. Pure general-purpose surface (never absorbing HTML/CSS)
+
+- **General-purpose across systems, services and UI**: Simplex targets the full
+  spectrum from low-level engines and network services to interactive tools and
+  interfaces with one unified grammar and semantic model.
+- **Zero HTML/CSS dialect absorption**: Simplex will never embed HTML/XML tag
+  syntax, JSX/TSX, component template blocks or CSS/stylesheet sub-languages
+  (cascading selectors, hyphenated property names or inline style blocks).
+  Document markup and cascading style sheets split code into competing scope
+  axes and lexical exceptions; in Simplex, UI, graphics and layout are
+  constructed purely through ordinary data structures, `interface` contracts,
+  functions and `comptime` composition.
+
+### 2. Visual and structural laws by construction
 
 - **`singleword`**: Every locally declared identifier is a single vocabulary
-  atom. Module paths map 1:1 to filesystem paths (file-is-module), without
-  re-export barrels or path-alias indirection.
+  atom (no underscore-joined or camelCase/PascalCase multi-word compounds).
+  Module paths map 1:1 to filesystem paths (file-is-module), without re-export
+  barrels or path-alias indirection.
 - **`no comment`**: The `.sx` grammar has no line or block comments. Intent that
   cannot be expressed through names, types, exhaustive structure and tests
   belongs in governed design or Issue records, never inline excuses.
@@ -30,14 +45,14 @@ freedom through which visual entropy and build latency accumulate.
   depth and parameter count, refusing anonymous large tuples across boundaries,
   paired with one canonical formatting representation per syntax tree.
 
-### 2. Types, abstraction, memory and control
+### 3. Types, abstraction, memory and control
 
 - **Type inference with explicit boundaries**: Local and expression-level type
   inference eliminates repetitive type noise, while explicit type annotations
   and explicit conversions remain supported and mandatory at conversion edges
   (zero implicit coercion).
-- **No inheritance; orthogonal `interface` and generics**: Data declarations carry
-  data only. Polymorphism and abstraction use `interface` contracts and
+- **No inheritance; orthogonal `interface` and generics**: Data declarations
+  carry data only. Polymorphism and abstraction use `interface` contracts and
   generics, with zero inheritance hierarchies.
 - **Errors as values**: Failure is represented as ordinary typed values
   decomposed through `switch`, with no exception unwinding.
@@ -47,7 +62,7 @@ freedom through which visual entropy and build latency accumulate.
 - **Native `async`**: Asynchronous execution is a first-class language
   construct rather than an external macro or callback rewrite.
 
-### 3. Metaprogramming, compilation and linking
+### 4. Metaprogramming, compilation and linking
 
 - **Compile-time metaprogramming**: First-class `comptime` / macro-grade
   compile-time reflection and generation, subject to the same structural laws
@@ -59,10 +74,15 @@ freedom through which visual entropy and build latency accumulate.
   and linking boundary (`interface` + explicit ABI contract), enabling fast
   incremental linking and clean module isolation across bailiwicks.
 
-## Growth strategy
+## Cold-start method
 
-Simplex grows deliberately from real domain pressure rather than speculative
-feature accumulation. Open design trade-offs—such as exact `comptime` vs.
-hygienic AST macro boundaries, `borrow` rules across `dylib` interfaces, and
-native backend target staging—are explored and settled one bounded Issue at a
-time in `PerishLab/simplex`.
+Simplex's syntax and core semantics are locked in through eight orthogonal
+`pass / reject` golden specimen suites (`cases/<domain>`) paired with a thin
+Rust prototype frontend (`crates/`):
+
+1. Every `.sx` specimen in `pass/` and `reject/` stays pure comment-free `.sx`
+   source; expected refusal codes live in `cases/<domain>/suite.toml`.
+2. Candidate specimens are verified against unambiguous parsing and canonical
+   formatting round-trips alongside human `pass / reject` aesthetic review.
+3. Idioms rejected during review as language anti-patterns are promoted into
+   `reject/*.sx` as permanent compiler guardrails.
