@@ -1,10 +1,16 @@
+Measured := interface {
+    end: (self: Self) -> usize
+}
+
 Span := struct {
     offset: usize
     length: usize
 }
 
-Span.end := (self: Span) -> usize {
-    self.offset + self.length
+Span : Measured {
+    end: (self: Span) -> usize {
+        self.offset + self.length
+    }
 }
 
 Pair<A, B> := struct {

@@ -8,7 +8,7 @@ fn repository() {
     let report = verify(root).expect("golden suite clean");
     assert_eq!(report.domains, 8);
     assert_eq!(report.passed, 16);
-    assert_eq!(report.rejected, 63);
+    assert_eq!(report.rejected, 65);
 }
 
 #[test]

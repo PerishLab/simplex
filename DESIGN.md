@@ -59,9 +59,11 @@ accumulate.
   inference eliminates repetitive type noise, while explicit type annotations
   and explicit conversions remain supported and mandatory at conversion edges
   (zero implicit coercion).
-- **No inheritance; orthogonal `interface` and generics**: Data declarations
-  carry data only. Polymorphism and abstraction use `interface` contracts and
-  generics, with zero inheritance hierarchies.
+- **No inheritance; orthogonal `interface`, aliases and generics**: Data
+  declarations (`struct`, `enum`) carry data only and forbid scattered inherent
+  methods (`Type.method`). Methods exist strictly through `interface` contracts
+  bound in closed `Type : Interface { ... }` blocks, paired with type aliases
+  and generics, with zero inheritance hierarchies.
 - **Errors as values**: Failure is represented as ordinary typed values
   decomposed through `switch`, with no exception unwinding.
 - **Ownership and `borrow` model**: Memory and resource safety follow a

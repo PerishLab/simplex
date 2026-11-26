@@ -43,13 +43,14 @@ control)` and `M2 · Model (model)`:
   anchored by a `suite.toml` manifest mapping `reject/*.sx` specimens to exact
   refusal codes so `.sx` files remain completely comment-free; and
 - the reviewed `lexical` (6 `pass`, 25 `reject`), `control` (5 `pass`, 21
-  `reject`) and `model` (5 `pass`, 17 `reject`) golden suites paired with
+  `reject`) and `model` (5 `pass`, 19 `reject`) golden suites paired with
   zero-backtracking lexical/AST parsing, `bucket` + `switch` control laws,
-  unified `:=` `struct`/`enum`/`interface`/alias modeling, flat `Type : Interface`
-  conformance, generic bound checking, local type inference with zero implicit
-  coercion, global single-meaning `_` (only `bucket`'s fallback arm), `uses >= 2`
-  local binding hygiene and byte-idempotent canonical formatting in
-  `crates/lib` and `simplex {check,format}`.
+  unified `:=` `struct`/`enum`/`interface`/alias modeling, closed
+  `Type : Interface { ... }` conformance blocks (forbidding scattered inherent
+  `Type.method` definitions), generic bound checking, local type inference with
+  zero implicit coercion, global single-meaning `_` (only `bucket`'s fallback
+  arm), `uses >= 2` local binding hygiene and byte-idempotent canonical
+  formatting in `crates/lib` and `simplex {check,format}`.
 
 Multi-file module graph resolution, borrow checking, `async`, `comptime`,
 `dylib` ABI checks and native code generation are not yet implemented; target

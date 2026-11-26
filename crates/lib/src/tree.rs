@@ -14,15 +14,11 @@ pub struct Item {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Statement {
     Bind(Binding),
-    Method(Method),
     Struct(Structure),
     Enum(Enumeration),
     Interface(Contract),
     Alias(Alias),
-    Conform {
-        subject: String,
-        contract: Spec,
-    },
+    Conform(Conformance),
     Assign {
         target: Expression,
         operator: String,
@@ -91,10 +87,16 @@ pub struct Alias {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Method {
-    pub receiver: String,
+pub struct Entry {
     pub name: String,
     pub value: Expression,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Conformance {
+    pub subject: String,
+    pub contract: Spec,
+    pub methods: Vec<Entry>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

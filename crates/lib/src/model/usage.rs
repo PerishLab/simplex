@@ -49,12 +49,16 @@ impl Scanner {
     fn statement(&self, item: &Item) -> Result<(), Finding> {
         match &item.statement {
             Statement::Bind(binding) => self.expression(&binding.value),
-            Statement::Method(method) => self.expression(&method.value),
+            Statement::Conform(conf) => {
+                for entry in &conf.methods {
+                    self.expression(&entry.value)?;
+                }
+                Ok(())
+            }
             Statement::Struct(_)
             | Statement::Enum(_)
             | Statement::Interface(_)
-            | Statement::Alias(_)
-            | Statement::Conform { .. } => Ok(()),
+            | Statement::Alias(_) => Ok(()),
             Statement::Assign { target, value, .. } => {
                 self.expression(target)?;
                 self.expression(value)

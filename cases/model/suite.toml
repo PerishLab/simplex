@@ -25,6 +25,10 @@ file = "extends.sx"
 code = "model.inheritance"
 
 [[reject]]
+file = "extramethod.sx"
+code = "model.conformance"
+
+[[reject]]
 file = "implblock.sx"
 code = "model.declaration"
 
@@ -39,6 +43,10 @@ code = "model.conformance"
 [[reject]]
 file = "mixedmath.sx"
 code = "model.coercion"
+
+[[reject]]
+file = "scatter.sx"
+code = "model.declaration"
 
 [[reject]]
 file = "singleuse.sx"

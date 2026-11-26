@@ -3,14 +3,14 @@ Span := struct {
     length: usize
 }
 
-Span.zero := () -> Span {
+zero := () -> Span {
     Span { offset: 0, length: 0 }
 }
 
-Span.end := (self: Span) -> usize {
-    self.offset + self.length
+end := (span: Span) -> usize {
+    span.offset + span.length
 }
 
-Span.empty := (self: Span) -> bool {
-    self.length == 0
+empty := (span: Span) -> bool {
+    span.length == 0
 }
