@@ -87,6 +87,10 @@ fn format(file: &Path) {
 }
 
 fn build(entry: &Path, output: Option<&Path>, shared: bool) {
+    if shared {
+        eprintln!("unimplemented elf mode: Shared");
+        process::exit(1);
+    }
     let _ = simplex_runtime::STACK;
     let target = output.map_or_else(|| destination(entry, shared), Path::to_path_buf);
     let result = simplex_hir::lower("app", entry, shared)
@@ -110,6 +114,12 @@ fn destination(entry: &Path, shared: bool) -> PathBuf {
 }
 
 fn write(path: &Path, bytes: &[u8], shared: bool) -> Result<(), String> {
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent).map_err(|e| format!("mkdir failed: {e}"))?;
+    }
+    let _ = fs::remove_file(path);
     fs::write(path, bytes).map_err(|e| format!("write failed: {e}"))?;
     #[cfg(unix)]
     if !shared {
