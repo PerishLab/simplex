@@ -2,6 +2,7 @@ mod borrow;
 mod call;
 mod check;
 mod count;
+mod fiber;
 mod flow;
 mod infer;
 mod usage;
@@ -14,14 +15,16 @@ use crate::tree::{
 use std::collections::{BTreeMap, BTreeSet};
 
 pub fn check(program: &Program) -> Result<(), Finding> {
-    usage::verify(program)?;
     let table = Table::build(program)?;
+    usage::verify(&table, program)?;
     table.conformances()?;
     check::verify(&table, program)?;
+    table.fibers(program)?;
     table.verify(program)
 }
 
 pub(crate) struct Signature {
+    pub(crate) asynchronous: bool,
     pub(crate) generics: Vec<Generic>,
     pub(crate) inputs: Vec<Option<Spec>>,
     pub(crate) output: Option<Spec>,
@@ -82,6 +85,7 @@ impl Table {
                 self.functions.insert(
                     ext.name.clone(),
                     Signature {
+                        asynchronous: false,
                         generics: Vec::new(),
                         inputs: ext.inputs.iter().map(|p| p.annotation.clone()).collect(),
                         output: ext.output.clone(),
@@ -161,6 +165,13 @@ impl Table {
                     column: claim.column,
                 });
             };
+            if found.asynchronous != req.asynchronous {
+                return Err(Finding {
+                    code: Code::Mismatch,
+                    line: claim.line,
+                    column: claim.column,
+                });
+            }
             if found.inputs.len() != req.inputs.len()
                 || found.output.is_some() != req.output.is_some()
             {
@@ -199,10 +210,21 @@ impl Table {
         let resolved = self.resolve(owner);
         self.methods.get(&(resolved, name.to_owned()))
     }
+
+    pub(crate) fn nominal(&self, spec: &Spec) -> Option<String> {
+        match spec {
+            Spec::Named {
+                module: None, name, ..
+            } => Some(self.resolve(name)),
+            Spec::Borrow { target, .. } => self.nominal(target),
+            _ => None,
+        }
+    }
 }
 
 fn callable(expr: &Expression) -> Option<Signature> {
     let Expression::Function {
+        asynchronous,
         generics,
         inputs,
         output,
@@ -212,6 +234,7 @@ fn callable(expr: &Expression) -> Option<Signature> {
         return None;
     };
     Some(Signature {
+        asynchronous: *asynchronous,
         generics: generics.clone(),
         inputs: inputs
             .iter()

@@ -32,6 +32,13 @@ impl<'a> Access<'a> {
         Ok(())
     }
 
+    fn many(&mut self, list: &[Expression]) -> Result<(), Finding> {
+        for expr in list {
+            self.expression(expr)?;
+        }
+        Ok(())
+    }
+
     fn statement(&mut self, item: &Item) -> Result<(), Finding> {
         let pos = (item.line, item.column);
         match &item.statement {
@@ -104,7 +111,7 @@ impl<'a> Access<'a> {
                 Ok(())
             }
             Spec::Borrow { target, .. } | Spec::Slice(target) => self.spec(target, pos),
-            Spec::Callable { inputs, output } => {
+            Spec::Callable { inputs, output, .. } => {
                 for input in inputs {
                     self.spec(input, pos)?;
                 }
@@ -153,6 +160,7 @@ impl<'a> Access<'a> {
     fn expression(&mut self, expr: &Expression) -> Result<(), Finding> {
         match expr {
             Expression::Group(inner) | Expression::Try(inner) => self.expression(inner),
+            Expression::List { items, .. } => self.many(items),
             Expression::Unary { operand, .. } => self.expression(operand),
             Expression::Borrow { target, .. } => self.expression(target),
             Expression::Index {
@@ -160,10 +168,7 @@ impl<'a> Access<'a> {
             } => {
                 self.expression(base)?;
                 self.expression(start)?;
-                if let Some(end) = limit {
-                    self.expression(end)?;
-                }
-                Ok(())
+                limit.as_deref().map_or(Ok(()), |end| self.expression(end))
             }
             Expression::Binary { left, right, .. } => {
                 self.expression(left)?;
@@ -174,10 +179,7 @@ impl<'a> Access<'a> {
                 callee, arguments, ..
             } => {
                 self.expression(callee)?;
-                for arg in arguments {
-                    self.expression(arg)?;
-                }
-                Ok(())
+                self.many(arguments)
             }
             Expression::Record { .. } => self.record(expr),
             Expression::Switch(dispatch) => self.dispatch(dispatch),

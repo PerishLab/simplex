@@ -1,0 +1,32 @@
+Client := struct {
+    port: u16
+}
+
+State := struct {
+    latest: u64
+}
+
+fetch := async (client: &Client, key: u64) -> u64 {
+    key + client.port.into<u64>()
+}
+
+lookup := async (client: &Client, key: u64) -> u64 {
+    key ^ client.port.into<u64>()
+}
+
+fastest := async (primary: &Client, backup: &Client, key: u64) -> u64 {
+    [
+        fetch(primary, key),
+        lookup(backup, key),
+    ].race().await
+}
+
+refresh := async (state: &var State, primary: &Client, backup: &Client, key: u64) -> u64 {
+    winner := fastest(primary, backup, key).await
+    state.latest = winner
+    winner
+}
+
+broadcast := async (peers: &[Client], key: u64) -> List<u64> {
+    peers.map((peer) { fetch(peer, key) }).all().await
+}

@@ -1,0 +1,7 @@
+send := async (size: usize) -> usize {
+    size
+}
+
+bad := (size: usize) -> usize {
+    send(size).await
+}

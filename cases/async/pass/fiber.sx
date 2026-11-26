@@ -1,0 +1,46 @@
+Header := struct {
+    code: u16
+}
+
+Payload := struct {
+    length: usize
+}
+
+Packet := struct {
+    header: Header
+    payload: Payload
+}
+
+Pipe := struct {
+    sent: usize
+}
+
+meta := async (code: u16) -> Header {
+    Header { code: code }
+}
+
+body := async (length: usize) -> Payload {
+    Payload { length: length }
+}
+
+load := async (code: u16, length: usize) -> Packet {
+    first := meta(code)
+    second := body(length)
+    Packet {
+        header: first.await,
+        payload: second.await,
+    }
+}
+
+flush := async (pipe: &var Pipe, quota: usize) -> usize {
+    pipe.sent += quota
+    pipe.sent
+}
+
+pump := async (left: &var Pipe, right: &var Pipe, quota: usize) -> usize {
+    counts := [
+        flush(left, quota),
+        flush(right, quota),
+    ].all().await
+    counts[0] + counts[1]
+}

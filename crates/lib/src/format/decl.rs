@@ -1,9 +1,24 @@
 use super::Printer;
 use crate::tree::{
-    Alias, Conformance, Contract, Enumeration, External, Generic, Import, Structure,
+    Alias, Conformance, Contract, Enumeration, External, Generic, Import, Parameter, Structure,
 };
 
 impl Printer {
+    pub(crate) fn parameters(&mut self, inputs: &[Parameter]) {
+        self.out.push('(');
+        for (index, param) in inputs.iter().enumerate() {
+            if index > 0 {
+                self.out.push_str(", ");
+            }
+            self.out.push_str(&param.name);
+            if let Some(spec) = &param.annotation {
+                self.out.push_str(": ");
+                self.spec(spec);
+            }
+        }
+        self.out.push(')');
+    }
+
     pub(crate) fn imported(&mut self, item: &Import) {
         self.out.push_str(&item.name);
         self.out.push_str(" := import ");
@@ -130,6 +145,9 @@ impl Printer {
             self.margin();
             self.out.push_str(&req.name);
             self.out.push_str(": ");
+            if req.asynchronous {
+                self.out.push_str("async ");
+            }
             self.parameters(&req.inputs);
             if let Some(output) = &req.output {
                 self.out.push_str(" -> ");

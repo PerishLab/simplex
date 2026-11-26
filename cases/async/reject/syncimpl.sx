@@ -1,0 +1,14 @@
+Transport := interface {
+    send: async (self: &var Self, byte: u8) -> usize
+}
+
+Channel := struct {
+    queued: usize
+}
+
+Channel : Transport {
+    send: (self: &var Channel, byte: u8) -> usize {
+        self.queued += byte.into<usize>()
+        self.queued
+    }
+}

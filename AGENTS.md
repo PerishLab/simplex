@@ -34,7 +34,7 @@ compile-time evaluation (`comptime`), non-LLVM native code generator and
 ## Current baseline
 
 The repository currently includes `M0 · Harness`, `M1 · Surface (lexical,
-control)`, `M2 · Model (model, module)` and `M3 · Seams (borrow)`:
+control)`, `M2 · Model (model, module)` and `M3 · Seams (borrow, async)`:
 
 - the governed Rust workspace (`crates/lib` and `crates/cli`, with dependency
   direction `cli -> lib`), `plumb.toml` and `ectropy.toml`;
@@ -43,24 +43,26 @@ control)`, `M2 · Model (model, module)` and `M3 · Seams (borrow)`:
   anchored by a `suite.toml` manifest mapping `reject/*.sx` specimens to exact
   refusal codes so `.sx` files remain completely comment-free; and
 - the reviewed `lexical` (6 `pass`, 25 `reject`), `control` (5 `pass`, 21
-  `reject`), `model` (5 `pass`, 19 `reject`), `module` (3 `pass`, 18 `reject`)
-  and `borrow` (4 `pass`, 14 `reject`) golden suites paired with
-  zero-backtracking lexical/AST parsing, `bucket` + `switch` control laws,
-  unified `:=` `struct`/`enum`/`interface`/alias/`import`/`extern "c"` modeling,
-  closed `Type : Interface { ... }` conformance blocks (forbidding scattered
-  inherent `Type.method` definitions), 1:1 file-is-module cycle/visibility graph
-  checks, compiler arity/depth/chain caps (`param <= 4`, `block <= 4`,
-  `path <= 3`), move-by-default ownership with `Type : Copy {}` value opt-in,
-  `&T` / `&var T` / `&[T]` / `&var [T]` borrow and slice checking with NLL
-  last-use release (forbidding `'a` lifetime sigils and reference fields in
-  `struct`/`enum`), generic bound checking, local type inference with zero
-  implicit coercion, global single-meaning `_` (only `bucket`'s fallback arm),
-  `uses >= 2` local binding hygiene and byte-idempotent canonical formatting in
-  `crates/lib` and `simplex {check,format}`.
+  `reject`), `model` (5 `pass`, 19 `reject`), `module` (3 `pass`, 18 `reject`),
+  `borrow` (4 `pass`, 14 `reject`) and `async` (4 `pass`, 12 `reject`) golden
+  suites paired with zero-backtracking lexical/AST parsing, `bucket` + `switch`
+  control laws, unified `:=`
+  `struct`/`enum`/`interface`/alias/`import`/`extern "c"` modeling, closed
+  `Type : Interface { ... }` conformance blocks, 1:1 file-is-module
+  cycle/visibility graph checks, compiler arity/depth/chain caps (`param <= 4`,
+  `block <= 4`, `path <= 3`), move-by-default ownership with `Type : Copy {}`
+  opt-in, `&T` / `&var T` / `&[T]` / `&var [T]` borrow and slice checking with
+  NLL release, first-class native `async` functions and `interface` methods with
+  uniform linear `Fiber<T>` handles, `.all().await` / `.race().await` chained
+  combinators and cancellation/concurrent borrow verification, generic bound
+  checking, local type inference with zero implicit coercion, global
+  single-meaning `_` (only `bucket`'s fallback arm), `uses >= 2` local binding
+  hygiene and byte-idempotent canonical formatting in `crates/lib` and
+  `simplex {check,format}`.
 
-`async`, `comptime`, `dylib` ABI checks and native code generation are not yet
+`comptime`, `dylib` ABI checks and native code generation are not yet
 implemented; target language principles live in [DESIGN.md](DESIGN.md) and
-native Issues (`#9`–`#11`).
+native Issues (`#10`–`#11`).
 
 ## Core objects
 

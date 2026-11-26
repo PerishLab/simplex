@@ -1,0 +1,8 @@
+send := async (size: usize) -> usize {
+    size
+}
+
+twice := async (size: usize) -> usize {
+    pending := send(size)
+    pending.await + pending.await
+}

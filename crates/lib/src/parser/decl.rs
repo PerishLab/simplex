@@ -206,6 +206,12 @@ impl<'a> Stream<'a> {
         while self.peek().is_some_and(|tok| !tok.symbol("}")) {
             let method = self.word()?.text.clone();
             self.expect(":")?;
+            let asynchronous = if self.peek().is_some_and(|tok| tok.word("async")) {
+                self.bump();
+                true
+            } else {
+                false
+            };
             let inputs = self.parameters()?;
             let output = if self.peek().is_some_and(|tok| tok.symbol("->")) {
                 self.bump();
@@ -216,6 +222,7 @@ impl<'a> Stream<'a> {
             self.delimit()?;
             methods.push(Requirement {
                 name: method,
+                asynchronous,
                 inputs,
                 output,
             });

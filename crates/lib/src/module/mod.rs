@@ -109,6 +109,12 @@ impl Topology {
     fn expression(&self, expr: &Expression) -> Result<(), Finding> {
         match expr {
             Expression::Group(inner) | Expression::Try(inner) => self.expression(inner),
+            Expression::List { items, .. } => {
+                for item in items {
+                    self.expression(item)?;
+                }
+                Ok(())
+            }
             Expression::Unary { operand, .. } => self.expression(operand),
             Expression::Borrow { target, .. } => self.expression(target),
             Expression::Index {

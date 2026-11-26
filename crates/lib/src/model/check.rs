@@ -15,6 +15,8 @@ pub(crate) enum Type {
     Generic(String),
     Borrow { mutable: bool, inner: Box<Type> },
     Slice(Box<Type>),
+    List(Box<Type>),
+    Fiber(Box<Type>),
     Unknown,
 }
 
@@ -45,9 +47,23 @@ impl<'a> Scope<'a> {
 
     pub(crate) fn from(&self, spec: &Spec) -> Type {
         match spec {
-            Spec::Named { module, name, .. } => {
+            Spec::Named {
+                module,
+                name,
+                arguments,
+            } => {
                 if let Some(prefix) = module {
                     return Type::Nominal(format!("{prefix}.{name}"));
+                }
+                if name == "Fiber"
+                    && let [arg] = arguments.as_slice()
+                {
+                    return Type::Fiber(Box::new(self.from(arg)));
+                }
+                if name == "List"
+                    && let [arg] = arguments.as_slice()
+                {
+                    return Type::List(Box::new(self.from(arg)));
                 }
                 if self.generics.contains_key(name) {
                     return Type::Generic(name.clone());
@@ -240,7 +256,9 @@ pub(crate) fn compatible(expected: &Type, actual: &Type) -> bool {
                 inner: ai,
             },
         ) => (!*em || *am) && compatible(ei, ai),
-        (Type::Slice(ei), Type::Slice(ai)) => compatible(ei, ai),
+        (Type::Slice(ei), Type::Slice(ai))
+        | (Type::List(ei), Type::List(ai))
+        | (Type::Fiber(ei), Type::Fiber(ai)) => compatible(ei, ai),
         (Type::Scalar(name), Type::Integer) | (Type::Integer, Type::Scalar(name)) => integer(name),
         (Type::Scalar(name), Type::Float) | (Type::Float, Type::Scalar(name)) => {
             matches!(name.as_str(), "f32" | "f64")
@@ -259,9 +277,13 @@ pub(crate) fn unify(left: Type, right: Type) -> Type {
 
 fn forbidden(kind: &Type, table: &Table) -> bool {
     match kind {
-        Type::Integer | Type::Float | Type::Scalar(_) | Type::Borrow { .. } | Type::Slice(_) => {
-            true
-        }
+        Type::Integer
+        | Type::Float
+        | Type::Scalar(_)
+        | Type::Borrow { .. }
+        | Type::Slice(_)
+        | Type::List(_)
+        | Type::Fiber(_) => true,
         Type::Nominal(name) => table.structs.contains_key(name),
         _ => false,
     }

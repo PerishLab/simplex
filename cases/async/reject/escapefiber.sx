@@ -1,0 +1,7 @@
+send := async (size: usize) -> usize {
+    size
+}
+
+escape := async (size: usize) -> Fiber<usize> {
+    send(size)
+}

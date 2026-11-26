@@ -228,6 +228,7 @@ fn banned(token: &Token, second: Option<&Token>) -> Option<Code> {
     }
     match token.text.as_str() {
         "fn" if second.is_some_and(|next| next.kind == Kind::Word) => Some(Code::Signature),
+        "async" if second.is_some_and(|next| next.word("fn")) => Some(Code::Signature),
         "struct" | "enum" | "interface" | "impl" | "type" => Some(Code::Model),
         "import" => Some(Code::Import),
         "extern" => Some(Code::Extern),

@@ -1,0 +1,37 @@
+Fault := enum {
+    closed
+    timeout
+}
+
+Result<T, E> := enum {
+    ok(T)
+    err(E)
+}
+
+Header := struct {
+    size: usize
+    code: u16
+}
+
+Frame := struct {
+    header: Header
+}
+
+head := (frame: &Frame) -> &Header {
+    &frame.header
+}
+
+send := async (size: usize) -> Result<usize, Fault> {
+    Result.ok(size)
+}
+
+advance := (frame: &var Frame, sent: usize) {
+    frame.header.size -= sent
+}
+
+relay := async (frame: &var Frame) -> Result<usize, Fault> {
+    view := head(frame)
+    total := view.size + view.code.into<usize>()
+    advance(frame, send(total).await?)
+    Result.ok(total)
+}

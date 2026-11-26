@@ -1,0 +1,8 @@
+send := async (size: usize) -> usize {
+    size
+}
+
+bad := (size: usize) -> usize {
+    first := send(size)
+    size + first.into<usize>()
+}

@@ -95,6 +95,7 @@ impl<'a> Counter<'a> {
             Expression::Word { text, .. } => usize::from(text == self.target),
             Expression::Number(_) | Expression::Text(_) | Expression::Byte(_) => 0,
             Expression::Group(inner) | Expression::Try(inner) => self.expression(inner),
+            Expression::List { items, .. } => items.iter().map(|item| self.expression(item)).sum(),
             Expression::Unary { operand, .. } => self.expression(operand),
             Expression::Borrow { target, .. } => self.expression(target),
             Expression::Index {

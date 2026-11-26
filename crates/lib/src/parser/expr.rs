@@ -71,13 +71,25 @@ impl<'a> Stream<'a> {
             let start = self.bump().unwrap();
             return Ok(Expression::Loop(Box::new(self.repetition(start)?)));
         }
+        if tok.word("async") {
+            self.bump();
+            let generics = if self.peek().is_some_and(|next| next.symbol("<")) {
+                self.clauses()?
+            } else {
+                Vec::new()
+            };
+            return self.function(true, generics);
+        }
+        if tok.symbol("[") {
+            return self.list();
+        }
         if tok.symbol("<") {
             let generics = self.clauses()?;
-            return self.function(generics);
+            return self.function(false, generics);
         }
         if tok.symbol("(") {
             return if self.callable() {
-                self.function(Vec::new())
+                self.function(false, Vec::new())
             } else {
                 self.grouped()
             };
@@ -138,6 +150,30 @@ impl<'a> Stream<'a> {
         }
     }
 
+    fn list(&mut self) -> Result<Expression, Finding> {
+        let open = self.expect("[")?;
+        let (line, column) = (open.line, open.column);
+        let multiline = self.newlines() > 0;
+        let mut items = Vec::new();
+        while self.peek().is_some_and(|tok| !tok.symbol("]")) {
+            items.push(self.expression(0)?);
+            if self.peek().is_some_and(|tok| tok.symbol(",")) {
+                self.bump();
+                self.newlines();
+            } else {
+                self.newlines();
+                break;
+            }
+        }
+        self.expect("]")?;
+        Ok(Expression::List {
+            items,
+            multiline,
+            line,
+            column,
+        })
+    }
+
     fn grouped(&mut self) -> Result<Expression, Finding> {
         self.expect("(")?;
         let inner = self.expression(0)?;
@@ -145,7 +181,11 @@ impl<'a> Stream<'a> {
         Ok(Expression::Group(Box::new(inner)))
     }
 
-    fn function(&mut self, generics: Vec<Generic>) -> Result<Expression, Finding> {
+    fn function(
+        &mut self,
+        asynchronous: bool,
+        generics: Vec<Generic>,
+    ) -> Result<Expression, Finding> {
         let inputs = self.parameters()?;
         let output = if self.peek().is_some_and(|tok| tok.symbol("->")) {
             self.bump();
@@ -173,6 +213,7 @@ impl<'a> Stream<'a> {
             _ => return Err(next.fault(Code::Inline)),
         };
         Ok(Expression::Function {
+            asynchronous,
             generics,
             inputs,
             output,

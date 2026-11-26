@@ -1,7 +1,8 @@
-use super::Signature;
+mod call;
+
 use super::check::{Scope, Type, compatible, unify};
 use crate::code::{Code, Finding};
-use crate::tree::{Expression, Generic, Spec};
+use crate::tree::{Expression, Spec};
 
 impl<'a> Scope<'a> {
     pub(crate) fn infer(&mut self, expr: &Expression) -> Result<Type, Finding> {
@@ -14,7 +15,20 @@ impl<'a> Scope<'a> {
             Expression::Text(_) => Ok(Type::Scalar("Text".into())),
             Expression::Byte(_) => Ok(Type::Scalar("u8".into())),
             Expression::Word { text, .. } => Ok(self.word(text)),
-            Expression::Group(inner) | Expression::Try(inner) => self.infer(inner),
+            Expression::Group(inner) => self.infer(inner),
+            Expression::Try(inner) => {
+                let kind = self.infer(inner)?;
+                Ok(match kind {
+                    Type::Nominal(_) => Type::Unknown,
+                    other => other,
+                })
+            }
+            Expression::List {
+                items,
+                line,
+                column,
+                ..
+            } => self.listed(items, (*line, *column)),
             Expression::Unary { operand, .. } => self.infer(operand),
             Expression::Borrow {
                 mutable, target, ..
@@ -42,17 +56,32 @@ impl<'a> Scope<'a> {
                 for field in fields {
                     self.infer(&field.value)?;
                 }
-                let label = match module {
-                    Some(prefix) => format!("{prefix}.{name}"),
-                    None => self.table.resolve(name),
-                };
-                Ok(Type::Nominal(label))
+                Ok(Type::Nominal(module.as_ref().map_or_else(
+                    || self.table.resolve(name),
+                    |p| format!("{p}.{name}"),
+                )))
             }
             Expression::Switch(dispatch) => self.dispatch(dispatch),
             Expression::Bucket(partition) => self.partition(partition),
             Expression::Loop(kind) => self.repetition(kind),
             Expression::Function { .. } => self.callable(expr),
         }
+    }
+
+    fn listed(&mut self, items: &[Expression], pos: (usize, usize)) -> Result<Type, Finding> {
+        let mut element = Type::Unknown;
+        for item in items {
+            let current = self.infer(item)?;
+            if !compatible(&element, &current) {
+                return Err(Finding {
+                    code: Code::Coercion,
+                    line: pos.0,
+                    column: pos.1,
+                });
+            }
+            element = unify(element, current);
+        }
+        Ok(Type::List(Box::new(element)))
     }
 
     fn indexed(
@@ -73,6 +102,11 @@ impl<'a> Scope<'a> {
         match peeled {
             Type::Slice(elem) => Ok(if limit.is_some() {
                 Type::Slice(elem)
+            } else {
+                *elem
+            }),
+            Type::List(elem) => Ok(if limit.is_some() {
+                Type::List(elem)
             } else {
                 *elem
             }),
@@ -132,130 +166,27 @@ impl<'a> Scope<'a> {
             return Ok(Type::Nominal(self.table.resolve(text)));
         }
         let owner = self.infer(base)?;
+        if field == "await" {
+            return Ok(match owner {
+                Type::Fiber(inner) => *inner,
+                _ => Type::Unknown,
+            });
+        }
+        if matches!(field, "all" | "race")
+            && let Type::List(elem) = &owner
+            && let Type::Fiber(inner) = elem.as_ref()
+        {
+            return Ok(if field == "all" {
+                Type::Fiber(Box::new(Type::List(inner.clone())))
+            } else {
+                Type::Fiber(inner.clone())
+            });
+        }
         if matches!(field, "into" | "as")
             && let [target] = generics
         {
             return Ok(self.from(target));
         }
-        let peeled = match owner {
-            Type::Borrow { inner, .. } => *inner,
-            other => other,
-        };
-        if let Type::Nominal(name) = peeled {
-            if let Some(spec) = self.table.field(&name, field) {
-                return Ok(self.from(&spec));
-            }
-            if let Some(sig) = self.table.method(&name, field)
-                && let Some(out) = &sig.output
-            {
-                return Ok(self.from(out));
-            }
-        }
-        Ok(Type::Unknown)
-    }
-
-    fn call(&mut self, expr: &Expression) -> Result<Type, Finding> {
-        let Expression::Call {
-            callee,
-            arguments,
-            line,
-            column,
-            ..
-        } = expr
-        else {
-            return Ok(Type::Unknown);
-        };
-        let mut actuals = Vec::new();
-        for arg in arguments {
-            actuals.push(self.infer(arg)?);
-        }
-        if let Expression::Word { text, .. } = callee.as_ref()
-            && let Some(sig) = self.table.functions.get(text)
-        {
-            self.bounds(sig, &actuals, (*line, *column))?;
-            if let Some(out) = &sig.output {
-                return Ok(self.from(out));
-            }
-        }
-        self.infer(callee)
-    }
-
-    fn bounds(
-        &self,
-        sig: &Signature,
-        actuals: &[Type],
-        pos: (usize, usize),
-    ) -> Result<(), Finding> {
-        for (spec, actual) in sig.inputs.iter().zip(actuals) {
-            let Some(Spec::Named { name: param, .. }) = spec else {
-                continue;
-            };
-            if let Some(clause) = sig.generics.iter().find(|item| item.name == *param) {
-                self.satisfies(clause, actual, pos)?;
-            }
-        }
-        Ok(())
-    }
-
-    fn satisfies(
-        &self,
-        clause: &Generic,
-        actual: &Type,
-        pos: (usize, usize),
-    ) -> Result<(), Finding> {
-        let Type::Nominal(concrete) = actual else {
-            return Ok(());
-        };
-        if !self.table.structs.contains_key(concrete) && !self.table.enums.contains_key(concrete) {
-            return Ok(());
-        }
-        for bound in &clause.bounds {
-            let target = self.table.resolve(bound);
-            if !self.table.satisfied.contains(&(concrete.clone(), target)) {
-                return Err(Finding {
-                    code: Code::Conformance,
-                    line: pos.0,
-                    column: pos.1,
-                });
-            }
-        }
-        Ok(())
-    }
-
-    fn callable(&self, expr: &Expression) -> Result<Type, Finding> {
-        let Expression::Function {
-            generics,
-            inputs,
-            output,
-            body,
-        } = expr
-        else {
-            return Ok(Type::Unknown);
-        };
-        let mut inner = self.child();
-        for item in generics {
-            inner
-                .generics
-                .insert(item.name.clone(), item.bounds.clone());
-        }
-        for param in inputs {
-            let kind = param
-                .annotation
-                .as_ref()
-                .map_or(Type::Unknown, |spec| inner.from(spec));
-            inner.locals.insert(param.name.clone(), kind);
-        }
-        let actual = inner.body(body)?;
-        if let Some(spec) = output {
-            let expected = inner.from(spec);
-            if !compatible(&expected, &actual) {
-                return Err(Finding {
-                    code: Code::Coercion,
-                    line: inputs.first().map_or(1, |p| p.line),
-                    column: inputs.first().map_or(1, |p| p.column),
-                });
-            }
-        }
-        Ok(Type::Unknown)
+        self.projected(owner, field)
     }
 }
