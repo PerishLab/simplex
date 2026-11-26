@@ -11,11 +11,11 @@ this file keeps repository-specific charter and constraints without copying it.
 9-domain cold-start specification into `linux-x86_64` native non-LLVM compiler
 implementation (`Project #13 · Simplex · Native`): the explored question,
 non-goals, native records, exit condition, governed verification harness,
-6-crate cross-layer ABI spine, `N0–N3` native `x86_64` compilation (`Standalone`,
-`Dynamic` `extern "c"` and `Shared` `.so` `dylib` with cross-library
-`&Interface` fat-pointer vtable dispatch) is live, while `N4` `Fiber` runtime
-execution and a released Depot `SKILL.md` promise remain `unknown` until `N4`
-and formal release.
+6-crate cross-layer ABI spine, `N0–N4` zero-LLVM `linux-x86_64` native
+compilation (`Standalone`/`Dynamic`/`Shared` `.so` `ELF64`, `extern "c"`,
+cross-`.so` `&Interface` fat-pointer dispatch and stackful `Fiber<T>`
+`.await`/`.all()`/`.race()` deterministic cancellation runtime) is live, while
+a released Depot `SKILL.md` promise remains `unknown` until formal release.
 
 ## Explored question
 
@@ -52,8 +52,8 @@ The Rust workspace forms a strict zero-cycle DAG across six crates:
   `PT_INTERP` PIE and `Shared` `ET_DYN` `.so` shared objects) and relocation patcher.
 - `crates/runtime` (`simplex-runtime`, zero dependencies): `linux-x86_64`
   syscall numbers, `64 KiB + 4 KiB PROT_NONE` `Fiber` stack constants,
-  callee-saved `Context` frame (`rbx, rbp, r12..r15, rsp, rip`) and `sx$rt$exit`
-  process termination stub (`Fiber` kernel hooks staged for `N4`).
+  callee-saved `Context` frame (`rbx, rbp, r12..r15, rsp, rip`) and self-contained PIC `sx$rt$*` machine-code stubs (`start`, `exit`,
+  `write`, `spawn`, `yield`, `await`, `all`, `race`, `cancel`).
 - `crates/emit` (`simplex-emit`, depends on `simplex-hir`, `simplex-elf`,
   `simplex-runtime`): Linear IR, loop-aware linear-scan register allocator
   (`rdi..r9` args, `rax+rdx` pair returns, `rbx, r12..r15` callee-saved) and

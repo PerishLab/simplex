@@ -249,8 +249,7 @@ pub fn build(unit: &Unit) -> Result<Plan, Fault> {
     let builder = fiber::Builder { unit };
     for routine in &unit.routines {
         if routine.asynchronous {
-            let _ = &builder;
-            return Err(Fault::Unimplemented(String::from("async")));
+            procedures.extend(builder.synthesize(routine, &mut literals)?);
         } else {
             procedures.push(synchronous(unit, &mut literals, routine)?);
         }
