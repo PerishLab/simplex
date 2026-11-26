@@ -100,9 +100,7 @@ impl Printer {
     }
 
     fn binding(&mut self, binding: &Binding) {
-        if binding.public {
-            self.out.push_str("pub ");
-        }
+        self.visibility(binding.public, binding.dynamic);
         if binding.mutable {
             self.out.push_str("var ");
         }

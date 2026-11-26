@@ -17,6 +17,12 @@ impl<'a> Scope<'a> {
                 let out = sig.output.as_ref().map_or(Type::Unknown, |s| self.from(s));
                 return Ok(wrap(sig.asynchronous, out));
             }
+            if let Some(contract) = self.table.interfaces.get(name)
+                && let Some(req) = contract.methods.iter().find(|m| m.name == field)
+            {
+                let out = req.output.as_ref().map_or(Type::Unknown, |s| self.from(s));
+                return Ok(wrap(req.asynchronous, out));
+            }
         }
         if let Type::Generic(param) = &peeled
             && let Some(bounds) = self.generics.get(param)

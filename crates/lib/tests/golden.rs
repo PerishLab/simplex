@@ -7,8 +7,8 @@ fn repository() {
     let root = Path::new("../../cases");
     let report = verify(root).expect("golden suite clean");
     assert_eq!(report.domains, 8);
-    assert_eq!(report.passed, 31);
-    assert_eq!(report.rejected, 120);
+    assert_eq!(report.passed, 34);
+    assert_eq!(report.rejected, 131);
 }
 
 #[test]

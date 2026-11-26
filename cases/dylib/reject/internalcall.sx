@@ -1,0 +1,5 @@
+codec := dylib codec
+
+probe := (header: &codec.Header) -> usize {
+    codec.helper(header)
+}

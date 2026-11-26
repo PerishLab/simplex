@@ -1,0 +1,3 @@
+pub dylib collect := (byte: u8) -> List<u8> {
+    [byte]
+}

@@ -1,0 +1,39 @@
+Pair<A, B> := struct {
+    pub first: A
+    pub second: B
+}
+
+pub dylib Header := struct {
+    pub magic: u32
+    pub length: u32
+}
+
+pub dylib Window := Pair<usize, usize>
+
+pub dylib Codec := interface {
+    encode: (self: &Self, input: &[u8], output: &var [u8]) -> usize
+}
+
+fold := <T>(target: &T) -> u64 {
+    var acc: u64 = 14695981039346656037
+    comptime for field in fields<T>() {
+        acc = (acc ^ get(target, field).into<u64>()) * 1099511628211
+    }
+    acc
+}
+
+pub helper := (header: &Header) -> usize {
+    header.length.into<usize>()
+}
+
+pub dylib digest := (header: &Header) -> u64 {
+    fold(header)
+}
+
+pub dylib slice := (payload: &[u8], window: Window) -> &[u8] {
+    &payload[window.first..window.second]
+}
+
+pub dylib transcode := (engine: &Codec, input: &[u8], output: &var [u8]) -> usize {
+    engine.encode(input, output)
+}

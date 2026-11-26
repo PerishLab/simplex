@@ -97,9 +97,12 @@ accumulate.
 - **`no llvm`**: Native machine-code generation without LLVM, optimizing for
   sub-second edit-compile-verify turnaround instead of multi-minute backend
   passes and build-lock contention.
-- **First-class `dylib`**: Dynamic libraries are a primary modular compilation
-  and linking boundary (`interface` + explicit ABI contract), enabling fast
-  incremental linking and clean module isolation across bailiwicks.
+- **First-class `dylib` ABI boundary**: Dynamic libraries are a primary modular
+  compilation and linking boundary (`pub dylib` exports + `leaf := dylib
+  path.leaf` imports), supporting zero-`dyn` `&Interface` fat-pointer dispatch
+  and caller-provided `&[T]` / `&var [T]` slice borrows while statically
+  requiring library-internal generic/`comptime` monomorphization and transparent
+  ABI-safe layouts.
 
 ## Cold-start method
 

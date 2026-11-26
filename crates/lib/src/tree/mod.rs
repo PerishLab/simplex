@@ -44,6 +44,7 @@ pub enum Statement {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Import {
+    pub dynamic: bool,
     pub name: String,
     pub path: Vec<String>,
 }
@@ -51,6 +52,7 @@ pub struct Import {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct External {
     pub public: bool,
+    pub dynamic: bool,
     pub name: String,
     pub abi: String,
     pub symbol: String,
@@ -74,6 +76,7 @@ pub struct Slot {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Structure {
     pub public: bool,
+    pub dynamic: bool,
     pub name: String,
     pub generics: Vec<Generic>,
     pub fields: Vec<Slot>,
@@ -88,6 +91,7 @@ pub struct Variant {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Enumeration {
     pub public: bool,
+    pub dynamic: bool,
     pub name: String,
     pub generics: Vec<Generic>,
     pub variants: Vec<Variant>,
@@ -104,6 +108,7 @@ pub struct Requirement {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Contract {
     pub public: bool,
+    pub dynamic: bool,
     pub name: String,
     pub generics: Vec<Generic>,
     pub methods: Vec<Requirement>,
@@ -112,6 +117,7 @@ pub struct Contract {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Alias {
     pub public: bool,
+    pub dynamic: bool,
     pub name: String,
     pub generics: Vec<Generic>,
     pub target: Spec,
@@ -133,6 +139,7 @@ pub struct Conformance {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Binding {
     pub public: bool,
+    pub dynamic: bool,
     pub mutable: bool,
     pub name: String,
     pub annotation: Option<Spec>,

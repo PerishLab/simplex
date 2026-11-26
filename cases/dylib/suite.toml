@@ -1,1 +1,45 @@
 domain = "dylib"
+
+[[reject]]
+file = "aliasdylib.sx"
+code = "dylib.visibility"
+
+[[reject]]
+file = "asyncdylib.sx"
+code = "dylib.layout"
+
+[[reject]]
+file = "comptimefn.sx"
+code = "dylib.generic"
+
+[[reject]]
+file = "genericfn.sx"
+code = "dylib.generic"
+
+[[reject]]
+file = "genericiface.sx"
+code = "dylib.generic"
+
+[[reject]]
+file = "genericstruct.sx"
+code = "dylib.generic"
+
+[[reject]]
+file = "heaplist.sx"
+code = "dylib.layout"
+
+[[reject]]
+file = "internalcall.sx"
+code = "dylib.visibility"
+
+[[reject]]
+file = "leakedtype.sx"
+code = "dylib.layout"
+
+[[reject]]
+file = "opaquestruct.sx"
+code = "dylib.layout"
+
+[[reject]]
+file = "reexportdylib.sx"
+code = "dylib.visibility"

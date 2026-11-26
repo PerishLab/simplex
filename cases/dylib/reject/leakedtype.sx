@@ -1,0 +1,7 @@
+Internal := struct {
+    pub tag: u32
+}
+
+pub dylib open := (tag: u32) -> Internal {
+    Internal { tag: tag }
+}

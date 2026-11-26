@@ -130,12 +130,12 @@ impl<'a> Stream<'a> {
         }
         if token.kind == Kind::Word
             && capitalized(&token.text)
-            && let Some(model) = self.nominal(false)?
+            && let Some(model) = self.nominal((false, false))?
         {
             return Ok(model);
         }
         if token.kind == Kind::Word && self.declaration() {
-            return self.declared(false);
+            return self.declared((false, false));
         }
         self.action()
     }
@@ -145,17 +145,23 @@ impl<'a> Stream<'a> {
         if braced || self.peek().is_some_and(|tok| tok.symbol("(")) {
             return Err(kw.fault(Code::Visibility));
         }
+        let dynamic = if self.peek().is_some_and(|tok| tok.word("dylib")) {
+            self.bump();
+            true
+        } else {
+            false
+        };
         let Some(next) = self.peek() else {
             return Err(kw.fault(Code::Visibility));
         };
         if next.kind == Kind::Word
             && capitalized(&next.text)
-            && let Some(model) = self.nominal(true)?
+            && let Some(model) = self.nominal((true, dynamic))?
         {
             return Ok(model);
         }
         if next.kind == Kind::Word && self.declaration() {
-            return self.declared(true);
+            return self.declared((true, dynamic));
         }
         Err(kw.fault(Code::Visibility))
     }
@@ -182,18 +188,19 @@ impl<'a> Stream<'a> {
 
     fn variable(&mut self) -> Result<Statement, Finding> {
         self.bump();
-        let mut binding = self.binding(false)?;
+        let mut binding = self.binding((false, false))?;
         binding.mutable = true;
         Ok(Statement::Bind(binding))
     }
 
-    pub(crate) fn binding(&mut self, public: bool) -> Result<Binding, Finding> {
+    pub(crate) fn binding(&mut self, exposure: (bool, bool)) -> Result<Binding, Finding> {
         let name = self.word()?.text.clone();
         if self.peek().is_some_and(|tok| tok.symbol(":=")) {
             self.bump();
             let value = self.expression(0)?;
             return Ok(Binding {
-                public,
+                public: exposure.0,
+                dynamic: exposure.1,
                 mutable: false,
                 name,
                 annotation: None,
@@ -205,7 +212,8 @@ impl<'a> Stream<'a> {
         self.expect("=")?;
         let value = self.expression(0)?;
         Ok(Binding {
-            public,
+            public: exposure.0,
+            dynamic: exposure.1,
             mutable: false,
             name,
             annotation,
@@ -255,6 +263,7 @@ fn banned(token: &Token, second: Option<&Token>) -> Option<Code> {
         "async" if second.is_some_and(|next| next.word("fn")) => Some(Code::Signature),
         "struct" | "enum" | "interface" | "impl" | "type" => Some(Code::Model),
         "import" => Some(Code::Import),
+        "dylib" => Some(Code::Boundary),
         "extern" => Some(Code::Extern),
         _ => None,
     }
