@@ -87,10 +87,6 @@ fn format(file: &Path) {
 }
 
 fn build(entry: &Path, output: Option<&Path>, shared: bool) {
-    if shared {
-        eprintln!("unimplemented elf mode: Shared");
-        process::exit(1);
-    }
     let _ = simplex_runtime::STACK;
     let target = output.map_or_else(|| destination(entry, shared), Path::to_path_buf);
     let result = simplex_hir::lower("app", entry, shared)

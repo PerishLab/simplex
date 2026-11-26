@@ -11,11 +11,11 @@ this file keeps repository-specific charter and constraints without copying it.
 9-domain cold-start specification into `linux-x86_64` native non-LLVM compiler
 implementation (`Project #13 · Simplex · Native`): the explored question,
 non-goals, native records, exit condition, governed verification harness,
-6-crate cross-layer ABI spine, `N0` monomorphized Typed HIR lowering, `N1`
-standalone `ELF64` emission and `N2` aggregate/slice/`embed`/`Drop`/`extern "c"`
-dynamic `PT_INTERP` execution exist, while `N3` `.so` shared libraries, `N4`
-`Fiber` runtime execution and a released Depot `SKILL.md` promise remain
-`unknown` until `N3–N4` land.
+6-crate cross-layer ABI spine, `N0–N3` native `x86_64` compilation (`Standalone`,
+`Dynamic` `extern "c"` and `Shared` `.so` `dylib` with cross-library
+`&Interface` fat-pointer vtable dispatch) is live, while `N4` `Fiber` runtime
+execution and a released Depot `SKILL.md` promise remain `unknown` until `N4`
+and formal release.
 
 ## Explored question
 
@@ -48,8 +48,8 @@ The Rust workspace forms a strict zero-cycle DAG across six crates:
   symbol mangling and System V AMD64 byte layout/passing computation
   (`Footprint`, `Passing`).
 - `crates/elf` (`simplex-elf`, zero dependencies): Pure-Rust `linux-x86_64`
-  ELF64 image emitter (`Standalone` static `ET_EXEC` and `Dynamic`
-  `PT_INTERP` PIE live; `Shared` `.so` mode staged for `N3`) and relocation patcher.
+  ELF64 image emitter (`Standalone` static `ET_EXEC`, `Dynamic`
+  `PT_INTERP` PIE and `Shared` `ET_DYN` `.so` shared objects) and relocation patcher.
 - `crates/runtime` (`simplex-runtime`, zero dependencies): `linux-x86_64`
   syscall numbers, `64 KiB + 4 KiB PROT_NONE` `Fiber` stack constants,
   callee-saved `Context` frame (`rbx, rbp, r12..r15, rsp, rip`) and `sx$rt$exit`
