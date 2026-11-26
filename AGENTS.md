@@ -66,16 +66,17 @@ principles live in [DESIGN.md](DESIGN.md) and native Issues (`#4`–`#11`).
   expectation comments; every `reject/*.sx` file on disk must be explicitly
   listed with its exact `Code` in that domain's `suite.toml`, and unlisted or
   missing files fail closed.
-- **General-purpose purity**: Simplex never absorbs HTML, CSS, JSX/TSX or
-  template-markup dialects into its grammar; UI, graphics and layout are
-  expressed through ordinary types, functions, interfaces and `comptime`.
+- **Orthogonal systems-language scope**: Simplex benchmarks directly against
+  C++, Rust and Zig as a systems-grade general-purpose programming language; it
+  does not solve markup, layout, styling or other specialized domain-specific
+  language (DSL) problems and refuses kitchen-sink scope expansion.
 - **Zero silent weakening**: All Rust frontend source obeys domain `singleword`,
   comment-ban and structural limits without exemptions.
 
 ## Non-goals
 
-- No embedded markup or stylesheet sub-languages (HTML, XML tags, JSX/TSX,
-  Svelte/Vue templates or CSS rulesets/hyphenated property syntax).
+- Solving or absorbing markup, layout, styling or other specialized/future
+  domain-specific languages (DSLs).
 - No LLVM backend dependency.
 - No tracing garbage collector.
 - No class or struct inheritance hierarchy.

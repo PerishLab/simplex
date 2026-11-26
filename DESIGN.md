@@ -16,18 +16,19 @@ accumulate.
 
 ## Core principles
 
-### 1. Pure general-purpose surface (never absorbing HTML/CSS)
+### 1. Systems-grade general-purpose scope (refusing kitchen-sink DSLs)
 
-- **General-purpose across systems, services and UI**: Simplex targets the full
-  spectrum from low-level engines and network services to interactive tools and
-  interfaces with one unified grammar and semantic model.
-- **Zero HTML/CSS dialect absorption**: Simplex will never embed HTML/XML tag
-  syntax, JSX/TSX, component template blocks or CSS/stylesheet sub-languages
-  (cascading selectors, hyphenated property names or inline style blocks).
-  Document markup and cascading style sheets split code into competing scope
-  axes and lexical exceptions; in Simplex, UI, graphics and layout are
-  constructed purely through ordinary data structures, `interface` contracts,
-  functions and `comptime` composition.
+- **Benchmarking C++, Rust and Zig**: Simplex is a pure systems-grade
+  general-purpose programming language focused on computation, data
+  representation, deterministic memory layout and ownership, control flow,
+  concurrency (`async`), compile-time metaprogramming (`comptime`), fast native
+  machine-code generation and dynamic library (`dylib`) linking.
+- **No markup, layout, styling or specialized DSL scope**: Simplex does not
+  solve markup, layout, styling or other specialized/future domain-specific
+  language (DSL) problems. It neither absorbs declarative DSL sub-languages
+  (such as HTML/XML markup or CSS stylesheets) into `.sx` nor contorts its
+  general-purpose core into a kitchen-sink replacement for domain-specific
+  declarative tools.
 
 ### 2. Visual and structural laws by construction
 
