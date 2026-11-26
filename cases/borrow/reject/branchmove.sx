@@ -1,0 +1,20 @@
+Packet := struct {
+    code: u16
+}
+
+consume := (packet: Packet) -> u16 {
+    packet.code
+}
+
+route := (flag: bool, packet: Packet) -> u16 {
+    var total: u16 = 0
+    switch flag {
+        true => {
+            total += consume(packet)
+        }
+        false => {
+            total += 1
+        }
+    }
+    total + consume(packet)
+}

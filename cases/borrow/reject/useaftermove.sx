@@ -1,0 +1,11 @@
+Packet := struct {
+    code: u16
+}
+
+consume := (packet: Packet) -> u16 {
+    packet.code
+}
+
+bad := (packet: Packet) -> u16 {
+    consume(packet) + consume(packet)
+}

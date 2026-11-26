@@ -175,6 +175,17 @@ impl Inspector {
             | Expression::Byte(_) => Ok(()),
             Expression::Group(inner) | Expression::Try(inner) => self.expression(inner, depth),
             Expression::Unary { operand, .. } => self.expression(operand, depth),
+            Expression::Borrow { target, .. } => self.expression(target, depth),
+            Expression::Index {
+                base, start, limit, ..
+            } => {
+                self.expression(base, depth)?;
+                self.expression(start, depth)?;
+                if let Some(end) = limit {
+                    self.expression(end, depth)?;
+                }
+                Ok(())
+            }
             Expression::Binary { left, right, .. } => {
                 self.expression(left, depth)?;
                 self.expression(right, depth)

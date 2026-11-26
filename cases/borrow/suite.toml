@@ -1,1 +1,57 @@
 domain = "borrow"
+
+[[reject]]
+file = "branchmove.sx"
+code = "borrow.moved"
+
+[[reject]]
+file = "dangling.sx"
+code = "borrow.escape"
+
+[[reject]]
+file = "doublemut.sx"
+code = "borrow.conflict"
+
+[[reject]]
+file = "enumref.sx"
+code = "borrow.storage"
+
+[[reject]]
+file = "methodmove.sx"
+code = "borrow.moved"
+
+[[reject]]
+file = "moveborrowed.sx"
+code = "borrow.conflict"
+
+[[reject]]
+file = "mutimm.sx"
+code = "borrow.mutable"
+
+[[reject]]
+file = "noncopy.sx"
+code = "borrow.copy"
+
+[[reject]]
+file = "readwrite.sx"
+code = "borrow.conflict"
+
+[[reject]]
+file = "sourceless.sx"
+code = "borrow.escape"
+
+[[reject]]
+file = "structref.sx"
+code = "borrow.storage"
+
+[[reject]]
+file = "ticklife.sx"
+code = "borrow.lifetime"
+
+[[reject]]
+file = "useaftermove.sx"
+code = "borrow.moved"
+
+[[reject]]
+file = "writeview.sx"
+code = "borrow.mutable"

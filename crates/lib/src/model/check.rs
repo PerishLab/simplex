@@ -13,6 +13,8 @@ pub(crate) enum Type {
     Scalar(String),
     Nominal(String),
     Generic(String),
+    Borrow { mutable: bool, inner: Box<Type> },
+    Slice(Box<Type>),
     Unknown,
 }
 
@@ -55,6 +57,11 @@ impl<'a> Scope<'a> {
                 }
                 Type::Nominal(self.table.resolve(name))
             }
+            Spec::Borrow { mutable, target } => Type::Borrow {
+                mutable: *mutable,
+                inner: Box::new(self.from(target)),
+            },
+            Spec::Slice(inner) => Type::Slice(Box::new(self.from(inner))),
             Spec::Callable { .. } => Type::Unknown,
         }
     }
@@ -223,6 +230,17 @@ pub(crate) fn compatible(expected: &Type, actual: &Type) -> bool {
     match (expected, actual) {
         (Type::Unknown, _) | (_, Type::Unknown) => true,
         (a, b) if a == b => true,
+        (
+            Type::Borrow {
+                mutable: em,
+                inner: ei,
+            },
+            Type::Borrow {
+                mutable: am,
+                inner: ai,
+            },
+        ) => (!*em || *am) && compatible(ei, ai),
+        (Type::Slice(ei), Type::Slice(ai)) => compatible(ei, ai),
         (Type::Scalar(name), Type::Integer) | (Type::Integer, Type::Scalar(name)) => integer(name),
         (Type::Scalar(name), Type::Float) | (Type::Float, Type::Scalar(name)) => {
             matches!(name.as_str(), "f32" | "f64")
@@ -241,7 +259,9 @@ pub(crate) fn unify(left: Type, right: Type) -> Type {
 
 fn forbidden(kind: &Type, table: &Table) -> bool {
     match kind {
-        Type::Integer | Type::Float | Type::Scalar(_) => true,
+        Type::Integer | Type::Float | Type::Scalar(_) | Type::Borrow { .. } | Type::Slice(_) => {
+            true
+        }
         Type::Nominal(name) => table.structs.contains_key(name),
         _ => false,
     }

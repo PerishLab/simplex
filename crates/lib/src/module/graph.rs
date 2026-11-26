@@ -14,6 +14,30 @@ pub(crate) struct Exports {
     pub(crate) structs: BTreeMap<String, Structure>,
 }
 
+impl Exports {
+    pub(crate) fn exposed(&self, field: &str) -> bool {
+        self.values.get(field).copied().unwrap_or(false)
+            || self.types.get(field).copied().unwrap_or(false)
+    }
+
+    pub(crate) fn constructible(&self, name: &str) -> bool {
+        self.structs
+            .get(name)
+            .is_some_and(|s| s.public && s.fields.iter().all(|slot| slot.public))
+    }
+
+    pub(crate) fn readable(&self, kind: &str, field: &str) -> bool {
+        let Some(structure) = self.structs.get(kind) else {
+            return true;
+        };
+        structure
+            .fields
+            .iter()
+            .find(|slot| slot.name == field)
+            .is_none_or(|slot| slot.public)
+    }
+}
+
 pub(crate) fn verify(file: &str, dir: &Path, program: &Program) -> Result<(), Finding> {
     let mut stack = BTreeSet::new();
     stack.insert(dir.join(file));

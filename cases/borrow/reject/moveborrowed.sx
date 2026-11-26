@@ -1,0 +1,23 @@
+Header := struct {
+    offset: usize
+}
+
+Frame := struct {
+    header: Header
+}
+
+head := (frame: &Frame) -> &Header {
+    &frame.header
+}
+
+seal := (frame: Frame) -> usize {
+    frame.header.offset
+}
+
+premature := (limit: usize) -> usize {
+    frame := Frame {
+        header: Header { offset: limit },
+    }
+    view := head(&frame)
+    seal(frame) + view.offset + view.offset
+}

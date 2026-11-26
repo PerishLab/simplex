@@ -62,6 +62,11 @@ impl<'a> Stream<'a> {
                 base = self.member(base)?;
             } else if self
                 .peek()
+                .is_some_and(|tok| tok.symbol("[") && !tok.spaced)
+            {
+                base = self.index(base)?;
+            } else if self
+                .peek()
                 .is_some_and(|tok| tok.symbol("(") && !tok.spaced)
             {
                 base = self.call(base)?;
@@ -126,6 +131,26 @@ impl<'a> Stream<'a> {
             self.expect(">")?;
         }
         Ok(list)
+    }
+
+    fn index(&mut self, base: Expression) -> Result<Expression, Finding> {
+        let open = self.expect("[")?;
+        let (line, column) = (open.line, open.column);
+        let start = self.expression(0)?;
+        let limit = if self.peek().is_some_and(|tok| tok.symbol("..")) {
+            self.bump();
+            Some(Box::new(self.expression(0)?))
+        } else {
+            None
+        };
+        self.expect("]")?;
+        Ok(Expression::Index {
+            base: Box::new(base),
+            start: Box::new(start),
+            limit,
+            line,
+            column,
+        })
     }
 
     fn call(&mut self, callee: Expression) -> Result<Expression, Finding> {

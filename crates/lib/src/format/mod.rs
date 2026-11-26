@@ -127,6 +127,19 @@ impl Printer {
                     self.out.push('>');
                 }
             }
+            Spec::Borrow { mutable, target } => {
+                if *mutable {
+                    self.out.push_str("&var ");
+                } else {
+                    self.out.push('&');
+                }
+                self.spec(target);
+            }
+            Spec::Slice(inner) => {
+                self.out.push('[');
+                self.spec(inner);
+                self.out.push(']');
+            }
             Spec::Callable { inputs, output } => {
                 self.out.push_str("fn(");
                 self.specs(inputs);

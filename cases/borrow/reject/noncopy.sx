@@ -1,0 +1,9 @@
+Buffer := struct {
+    size: usize
+}
+
+Packet := struct {
+    body: Buffer
+}
+
+Packet : Copy {}

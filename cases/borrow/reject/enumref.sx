@@ -1,0 +1,4 @@
+Chunk := enum {
+    empty
+    slice(&[u8])
+}

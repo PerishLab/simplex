@@ -1,0 +1,24 @@
+Span := struct {
+    offset: usize
+    length: usize
+}
+
+Span : Copy {}
+
+Packet := struct {
+    window: Span
+    code: u16
+}
+
+inspect := (packet: &Packet) -> usize {
+    packet.window.length
+}
+
+consume := (packet: Packet) -> usize {
+    packet.window.offset + packet.code.into<usize>()
+}
+
+relay := (window: Span, code: u16) -> usize {
+    packet := Packet { window: window, code: code }
+    inspect(&packet) + consume(packet) + window.offset
+}

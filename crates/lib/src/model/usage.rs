@@ -158,6 +158,17 @@ impl Scanner {
             Expression::Number(_) | Expression::Text(_) | Expression::Byte(_) => Ok(()),
             Expression::Group(inner) | Expression::Try(inner) => self.expression(inner),
             Expression::Unary { operand, .. } => self.expression(operand),
+            Expression::Borrow { target, .. } => self.expression(target),
+            Expression::Index {
+                base, start, limit, ..
+            } => {
+                self.expression(base)?;
+                self.expression(start)?;
+                if let Some(end) = limit {
+                    self.expression(end)?;
+                }
+                Ok(())
+            }
             Expression::Binary { left, right, .. } => {
                 self.expression(left)?;
                 self.expression(right)

@@ -1,0 +1,8 @@
+Header := struct {
+    offset: usize
+}
+
+dangling := (seed: &Header) -> &Header {
+    var local := Header { offset: seed.offset }
+    &local
+}

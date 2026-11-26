@@ -103,6 +103,7 @@ impl<'a> Access<'a> {
                 }
                 Ok(())
             }
+            Spec::Borrow { target, .. } | Spec::Slice(target) => self.spec(target, pos),
             Spec::Callable { inputs, output } => {
                 for input in inputs {
                     self.spec(input, pos)?;
@@ -153,6 +154,17 @@ impl<'a> Access<'a> {
         match expr {
             Expression::Group(inner) | Expression::Try(inner) => self.expression(inner),
             Expression::Unary { operand, .. } => self.expression(operand),
+            Expression::Borrow { target, .. } => self.expression(target),
+            Expression::Index {
+                base, start, limit, ..
+            } => {
+                self.expression(base)?;
+                self.expression(start)?;
+                if let Some(end) = limit {
+                    self.expression(end)?;
+                }
+                Ok(())
+            }
             Expression::Binary { left, right, .. } => {
                 self.expression(left)?;
                 self.expression(right)
@@ -189,7 +201,7 @@ impl<'a> Access<'a> {
         };
         if let Expression::Word { text, .. } = base.as_ref() {
             if let Some(exports) = self.modules.get(text)
-                && !exposed(exports, field)
+                && !exports.exposed(field)
             {
                 return Err(Finding {
                     code: Code::Visibility,
@@ -198,7 +210,10 @@ impl<'a> Access<'a> {
                 });
             }
             if let Some((prefix, kind)) = self.locals.get(text)
-                && !readable(self.modules, prefix, kind, field)
+                && self
+                    .modules
+                    .get(prefix)
+                    .is_some_and(|e| !e.readable(kind, field))
             {
                 return Err(Finding {
                     code: Code::Visibility,
@@ -224,7 +239,7 @@ impl<'a> Access<'a> {
         };
         if let Some(prefix) = module
             && let Some(exports) = self.modules.get(prefix)
-            && !constructible(exports, name)
+            && !exports.constructible(name)
         {
             return Err(Finding {
                 code: Code::Visibility,
@@ -269,30 +284,4 @@ impl<'a> Access<'a> {
             Body::Loop(kind) => self.repetition(kind),
         }
     }
-}
-
-fn exposed(exports: &Exports, field: &str) -> bool {
-    exports.values.get(field).copied().unwrap_or(false)
-        || exports.types.get(field).copied().unwrap_or(false)
-}
-
-fn constructible(exports: &Exports, name: &str) -> bool {
-    exports
-        .structs
-        .get(name)
-        .is_some_and(|s| s.public && s.fields.iter().all(|slot| slot.public))
-}
-
-fn readable(modules: &BTreeMap<String, Exports>, prefix: &str, kind: &str, field: &str) -> bool {
-    let Some(exports) = modules.get(prefix) else {
-        return true;
-    };
-    let Some(structure) = exports.structs.get(kind) else {
-        return true;
-    };
-    structure
-        .fields
-        .iter()
-        .find(|slot| slot.name == field)
-        .is_none_or(|slot| slot.public)
 }

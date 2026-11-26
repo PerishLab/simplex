@@ -1,0 +1,13 @@
+Frame := struct {
+    offset: usize
+}
+
+merge := (left: &var Frame, right: &var Frame) -> usize {
+    left.offset += right.offset
+    left.offset
+}
+
+collide := (limit: usize) -> usize {
+    var frame := Frame { offset: limit }
+    merge(&var frame, &var frame)
+}

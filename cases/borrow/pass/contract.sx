@@ -1,0 +1,30 @@
+Buffer := interface {
+    used: (self: &Self) -> usize
+    push: (self: &var Self, byte: u8)
+    flush: (self: Self) -> usize
+}
+
+Chunk := struct {
+    count: usize
+    last: u8
+}
+
+Chunk : Buffer {
+    used: (self: &Chunk) -> usize {
+        self.count
+    }
+    push: (self: &var Chunk, byte: u8) {
+        self.count += 1
+        self.last = byte
+    }
+    flush: (self: Chunk) -> usize {
+        self.count + self.last.into<usize>()
+    }
+}
+
+emit := (first: u8, second: u8) -> usize {
+    var chunk := Chunk { count: 0, last: 0 }
+    chunk.push(first)
+    chunk.push(second)
+    chunk.used() + chunk.flush()
+}

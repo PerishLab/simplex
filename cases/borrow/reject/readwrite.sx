@@ -1,0 +1,24 @@
+Header := struct {
+    offset: usize
+}
+
+Frame := struct {
+    header: Header
+}
+
+head := (frame: &Frame) -> &Header {
+    &frame.header
+}
+
+reset := (frame: &var Frame) {
+    frame.header.offset = 0
+}
+
+overlap := (limit: usize) -> usize {
+    var frame := Frame {
+        header: Header { offset: limit },
+    }
+    view := head(&frame)
+    reset(&var frame)
+    view.offset + view.offset
+}

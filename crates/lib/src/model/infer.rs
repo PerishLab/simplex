@@ -16,6 +16,15 @@ impl<'a> Scope<'a> {
             Expression::Word { text, .. } => Ok(self.word(text)),
             Expression::Group(inner) | Expression::Try(inner) => self.infer(inner),
             Expression::Unary { operand, .. } => self.infer(operand),
+            Expression::Borrow {
+                mutable, target, ..
+            } => Ok(Type::Borrow {
+                mutable: *mutable,
+                inner: Box::new(self.infer(target)?),
+            }),
+            Expression::Index {
+                base, start, limit, ..
+            } => self.indexed(base, start, limit.as_deref()),
             Expression::Binary { .. } => self.binary(expr),
             Expression::Member {
                 base,
@@ -43,6 +52,31 @@ impl<'a> Scope<'a> {
             Expression::Bucket(partition) => self.partition(partition),
             Expression::Loop(kind) => self.repetition(kind),
             Expression::Function { .. } => self.callable(expr),
+        }
+    }
+
+    fn indexed(
+        &mut self,
+        base: &Expression,
+        start: &Expression,
+        limit: Option<&Expression>,
+    ) -> Result<Type, Finding> {
+        let container = self.infer(base)?;
+        self.infer(start)?;
+        if let Some(end) = limit {
+            self.infer(end)?;
+        }
+        let peeled = match container {
+            Type::Borrow { inner, .. } => *inner,
+            other => other,
+        };
+        match peeled {
+            Type::Slice(elem) => Ok(if limit.is_some() {
+                Type::Slice(elem)
+            } else {
+                *elem
+            }),
+            _ => Ok(Type::Unknown),
         }
     }
 
@@ -103,7 +137,11 @@ impl<'a> Scope<'a> {
         {
             return Ok(self.from(target));
         }
-        if let Type::Nominal(name) = owner {
+        let peeled = match owner {
+            Type::Borrow { inner, .. } => *inner,
+            other => other,
+        };
+        if let Type::Nominal(name) = peeled {
             if let Some(spec) = self.table.field(&name, field) {
                 return Ok(self.from(&spec));
             }
