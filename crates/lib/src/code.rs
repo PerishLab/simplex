@@ -127,6 +127,20 @@ pub enum Code {
     Layout,
     #[serde(rename = "dylib.visibility")]
     Boundary,
+    #[serde(rename = "meta.test")]
+    Test,
+    #[serde(rename = "meta.cfg")]
+    Condition,
+    #[serde(rename = "meta.target")]
+    Placement,
+    #[serde(rename = "meta.signature")]
+    Wrapper,
+    #[serde(rename = "meta.layout")]
+    Shape,
+    #[serde(rename = "meta.caller")]
+    Origin,
+    #[serde(rename = "meta.path")]
+    Asset,
 }
 
 impl Code {
@@ -194,6 +208,13 @@ impl Code {
             Self::Generic => "dylib.generic",
             Self::Layout => "dylib.layout",
             Self::Boundary => "dylib.visibility",
+            Self::Test => "meta.test",
+            Self::Condition => "meta.cfg",
+            Self::Placement => "meta.target",
+            Self::Wrapper => "meta.signature",
+            Self::Shape => "meta.layout",
+            Self::Origin => "meta.caller",
+            Self::Asset => "meta.path",
         }
     }
 }

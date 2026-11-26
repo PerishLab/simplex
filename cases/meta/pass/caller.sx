@@ -1,0 +1,15 @@
+Engine := interface {
+    write: (self: &Self, event: u64) -> u64
+}
+
+@caller
+pub record := (engine: &Engine, code: u64) -> u64 {
+    site := caller()
+    engine.write(code ^ site.line ^ site.column)
+}
+
+pub emit := (engine: &Engine) -> u64 {
+    first := record(engine, 1)
+    second := record(engine, 2)
+    (first + second) ^ (first & second)
+}

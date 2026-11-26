@@ -100,6 +100,7 @@ impl Printer {
     }
 
     fn binding(&mut self, binding: &Binding) {
+        self.decorators(&binding.decorators);
         self.visibility(binding.public, binding.dynamic);
         if binding.mutable {
             self.out.push_str("var ");

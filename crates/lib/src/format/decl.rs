@@ -1,9 +1,37 @@
 use super::Printer;
 use crate::tree::{
-    Alias, Conformance, Contract, Enumeration, External, Generic, Import, Parameter, Structure,
+    Alias, Conformance, Contract, Decorator, Enumeration, External, Generic, Import, Parameter,
+    Structure,
 };
 
 impl Printer {
+    pub(crate) fn decorators(&mut self, list: &[Decorator]) {
+        for dec in list {
+            self.decorator(dec);
+        }
+    }
+
+    fn decorator(&mut self, dec: &Decorator) {
+        self.out.push('@');
+        if let Some(module) = &dec.module {
+            self.out.push_str(module);
+            self.out.push('.');
+        }
+        self.out.push_str(&dec.name);
+        if !dec.arguments.is_empty() {
+            self.out.push('(');
+            for (index, arg) in dec.arguments.iter().enumerate() {
+                if index > 0 {
+                    self.out.push_str(", ");
+                }
+                self.expression(arg);
+            }
+            self.out.push(')');
+        }
+        self.out.push('\n');
+        self.margin();
+    }
+
     pub(crate) fn visibility(&mut self, public: bool, dynamic: bool) {
         if dynamic {
             self.out.push_str("pub dylib ");
@@ -88,6 +116,7 @@ impl Printer {
     }
 
     pub(crate) fn structure(&mut self, item: &Structure) {
+        self.decorators(&item.decorators);
         self.visibility(item.public, item.dynamic);
         self.out.push_str(&item.name);
         self.clauses(&item.generics);
@@ -102,6 +131,7 @@ impl Printer {
                 self.out.push('\n');
             }
             self.margin();
+            self.decorators(&field.decorators);
             if field.public {
                 self.out.push_str("pub ");
             }
@@ -116,6 +146,7 @@ impl Printer {
     }
 
     pub(crate) fn enumeration(&mut self, item: &Enumeration) {
+        self.decorators(&item.decorators);
         self.visibility(item.public, item.dynamic);
         self.out.push_str(&item.name);
         self.clauses(&item.generics);
@@ -126,6 +157,7 @@ impl Printer {
                 self.out.push('\n');
             }
             self.margin();
+            self.decorators(&variant.decorators);
             self.out.push_str(&variant.name);
             if !variant.payloads.is_empty() {
                 self.out.push('(');

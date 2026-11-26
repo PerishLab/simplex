@@ -53,6 +53,9 @@ impl<'a> Stream<'a> {
         let Some(tok) = self.peek() else {
             return Err(self.fault(Code::Syntax));
         };
+        if tok.symbol("@") {
+            return Err(tok.fault(Code::Placement));
+        }
         if tok.word("inline") {
             return Err(tok.fault(Code::Inline));
         }

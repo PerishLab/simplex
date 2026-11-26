@@ -1,0 +1,8 @@
+inject := (size: usize) -> usize {
+    size + 8
+}
+
+@inject
+pub Packet := struct {
+    pub tag: u32
+}

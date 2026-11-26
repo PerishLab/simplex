@@ -1,0 +1,37 @@
+domain = "meta"
+
+[[reject]]
+file = "badtarget.sx"
+code = "meta.target"
+
+[[reject]]
+file = "cfgattr.sx"
+code = "meta.cfg"
+
+[[reject]]
+file = "escapepath.sx"
+code = "meta.path"
+
+[[reject]]
+file = "exprattr.sx"
+code = "meta.target"
+
+[[reject]]
+file = "mutatelayout.sx"
+code = "meta.layout"
+
+[[reject]]
+file = "mutatesig.sx"
+code = "meta.signature"
+
+[[reject]]
+file = "testattr.sx"
+code = "meta.test"
+
+[[reject]]
+file = "testblock.sx"
+code = "meta.test"
+
+[[reject]]
+file = "unmarkedcaller.sx"
+code = "meta.caller"

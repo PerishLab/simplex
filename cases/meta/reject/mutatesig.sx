@@ -1,0 +1,14 @@
+Span := struct {
+    pub name: str
+    pub line: u64
+    pub column: u64
+}
+
+alter := (span: Span, step: u64) -> bool {
+    span.line == step
+}
+
+@alter
+pub compute := (input: u64) -> u64 {
+    input + input
+}

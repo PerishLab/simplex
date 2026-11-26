@@ -169,6 +169,13 @@ impl Boundary {
     }
 
     fn binding(&self, item: &Binding, pos: (usize, usize)) -> Result<(), Finding> {
+        if item
+            .decorators
+            .iter()
+            .any(|d| d.module.is_none() && d.name == "caller")
+        {
+            return Err(fault(Code::Generic, pos));
+        }
         if let Some(spec) = &item.annotation
             && !self.stable(spec, false)
         {
