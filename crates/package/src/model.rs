@@ -11,11 +11,17 @@ pub struct Version {
 impl Version {
     pub fn parse(text: &str) -> Result<Self, Fault> {
         let mut parts = text.split('.');
-        let major = segment(parts.next(), text)?;
-        let minor = segment(parts.next(), text)?;
-        let patch = segment(parts.next(), text)?;
+        let Some(major) = parts.next().and_then(segment) else {
+            return Err(Fault::Version(format!("invalid version: {text}")));
+        };
+        let Some(minor) = parts.next().and_then(segment) else {
+            return Err(Fault::Version(format!("invalid version: {text}")));
+        };
+        let Some(patch) = parts.next().and_then(segment) else {
+            return Err(Fault::Version(format!("invalid version: {text}")));
+        };
         if parts.next().is_some() {
-            return Err(Fault::Coordinate(format!("invalid version: {text}")));
+            return Err(Fault::Version(format!("invalid version: {text}")));
         }
         Ok(Self {
             major,
@@ -41,9 +47,15 @@ pub struct Coordinate {
 
 impl Coordinate {
     pub fn new(scope: &str, name: &str, version: Version, channel: &str) -> Result<Self, Fault> {
-        atom(scope, "scope")?;
-        atom(name, "name")?;
-        atom(channel, "channel")?;
+        if !word(scope) {
+            return Err(Fault::Coordinate(format!("invalid scope: {scope}")));
+        }
+        if !word(name) {
+            return Err(Fault::Coordinate(format!("invalid name: {name}")));
+        }
+        if !word(channel) {
+            return Err(Fault::Coordinate(format!("invalid channel: {channel}")));
+        }
         Ok(Self {
             scope: scope.to_owned(),
             name: name.to_owned(),
@@ -53,23 +65,30 @@ impl Coordinate {
     }
 
     pub fn parse(text: &str) -> Result<Self, Fault> {
-        let parts: Vec<&str> = text.split('/').collect();
-        if parts.len() != 4 {
+        let mut parts = text.split('/');
+        let Some(scope) = parts.next() else {
             return Err(Fault::Coordinate(format!("invalid coordinate: {text}")));
-        }
-        let version = Version::parse(parts[2])?;
-        Self::new(parts[0], parts[1], version, parts[3])
+        };
+        let Some(name) = parts.next() else {
+            return Err(Fault::Coordinate(format!("invalid coordinate: {text}")));
+        };
+        let Some(raw) = parts.next() else {
+            return Err(Fault::Coordinate(format!("invalid coordinate: {text}")));
+        };
+        let Some(channel) = parts.next() else {
+            return Err(Fault::Coordinate(format!("invalid coordinate: {text}")));
+        };
+        if parts.next().is_some() {
+            return Err(Fault::Coordinate(format!("invalid coordinate: {text}")));
+        };
+        let version = Version::parse(raw)?;
+        Self::new(scope, name, version, channel)
     }
 
     pub fn prefix(&self) -> String {
         format!(
-            "{}/{}/{}.{}.{}/{}",
-            self.scope,
-            self.name,
-            self.version.major,
-            self.version.minor,
-            self.version.patch,
-            self.channel
+            "{}/{}/{}/{}",
+            self.scope, self.name, self.version, self.channel
         )
     }
 
@@ -100,33 +119,29 @@ impl Coordinate {
 
 impl fmt::Display for Coordinate {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
-        out.write_str(&self.prefix())
+        write!(out, "{}", self.prefix())
     }
 }
 
-fn segment(part: Option<&str>, full: &str) -> Result<u64, Fault> {
-    let Some(raw) = part else {
-        return Err(Fault::Coordinate(format!("invalid version: {full}")));
+pub(crate) fn word(text: &str) -> bool {
+    let Some((&head, tail)) = text.as_bytes().split_first() else {
+        return false;
     };
-    if raw.is_empty() || (raw.len() > 1 && raw.starts_with('0')) {
-        return Err(Fault::Coordinate(format!("invalid version: {full}")));
-    }
-    if !raw.bytes().all(|byte| byte.is_ascii_digit()) {
-        return Err(Fault::Coordinate(format!("invalid version: {full}")));
-    }
-    raw.parse::<u64>()
-        .map_err(|_| Fault::Coordinate(format!("invalid version: {full}")))
+    head.is_ascii_lowercase()
+        && tail
+            .iter()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
 }
 
-fn atom(value: &str, field: &str) -> Result<(), Fault> {
-    let mut bytes = value.bytes();
-    let Some(first) = bytes.next() else {
-        return Err(Fault::Coordinate(format!("empty {field}")));
-    };
-    if !first.is_ascii_lowercase()
-        || !bytes.all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
-    {
-        return Err(Fault::Coordinate(format!("invalid {field}: {value}")));
+fn segment(part: &str) -> Option<u64> {
+    if part.is_empty() {
+        return None;
     }
-    Ok(())
+    if part.len() > 1 && part.starts_with('0') {
+        return None;
+    }
+    if !part.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    part.parse::<u64>().ok()
 }
