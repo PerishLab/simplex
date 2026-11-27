@@ -1,6 +1,6 @@
 use crate::front::numeric::{Value, digits, encode};
 use crate::front::types::Map;
-use crate::layout::{Mangle, Type};
+use crate::layout::Type;
 use crate::lower::engine::{Engine, Spec, Task};
 use crate::lower::frame::Frame;
 use crate::tree::{Expression, Routine, Statement};
@@ -39,7 +39,7 @@ impl<'a> Engine<'a> {
         if loose.is_empty() {
             return;
         }
-        let sym = Mangle::symbol(&self.ns, stem, "init");
+        let sym = self.symbol(stem, "init");
         if self.seen.insert(sym.clone()) {
             let mut frame = Frame::new(self, stem, Type::Void, BTreeMap::new());
             let body = frame.script(loose);
@@ -78,20 +78,25 @@ impl<'a> Engine<'a> {
         if !generics.is_empty() || inputs.iter().any(|p| p.constant) {
             return true;
         }
-        let sym = Mangle::symbol(&self.ns, stem, &b.name);
+        let sym = self.symbol(stem, &b.name);
         if self.seen.insert(sym.clone()) {
-            let exported = match self.shared {
-                true => b.dynamic,
-                false => b.public || (stem == entry && b.name == "main"),
-            };
+            let exported = self.visible(stem, entry, b);
             let routine = self.decorated((stem, sym), exported, b);
             self.routines.push(routine);
         }
         true
     }
 
+    fn visible(&self, stem: &str, entry: &str, b: &syntax::Binding) -> bool {
+        let local = self.world.local(stem);
+        match self.shared {
+            true => local && b.dynamic,
+            false => (local && b.public) || (stem == entry && b.name == "main"),
+        }
+    }
+
     pub fn ensure(&mut self, stem: &str, name: &str) -> Option<Type> {
-        let sym = Mangle::symbol(&self.ns, stem, name);
+        let sym = self.symbol(stem, name);
         if let Some(found) = self.routines.iter().find(|r| r.symbol == sym) {
             return Some(found.output.clone());
         }
@@ -99,10 +104,7 @@ impl<'a> Engine<'a> {
         let b = bindings.get(&(stem.to_owned(), name.to_owned())).cloned()?;
         if self.seen.insert(sym.clone()) {
             let last = self.world.order.last().cloned().unwrap_or_default();
-            let exported = match self.shared {
-                true => b.dynamic,
-                false => b.public || (stem == last && b.name == "main"),
-            };
+            let exported = self.visible(stem, &last, &b);
             let routine = self.decorated((stem, sym), exported, &b);
             let out = routine.output.clone();
             self.routines.push(routine);
@@ -132,7 +134,7 @@ impl<'a> Engine<'a> {
             routine.inputs.push((String::from("$caller"), origin));
         }
         for dec in &b.decorators {
-            if dec.module.is_none() && !matches!(dec.name.as_str(), "caller" | "derive") {
+            if !(dec.module.is_none() && matches!(dec.name.as_str(), "caller" | "derive")) {
                 routine = self.wrap((stem, &b.name), dec, routine);
             }
         }
@@ -146,11 +148,14 @@ impl<'a> Engine<'a> {
         mut routine: Routine,
     ) -> Routine {
         let (stem, target) = loc;
-        let wsym = Mangle::symbol(&self.ns, stem, &dec.name);
+        let owner = dec
+            .module
+            .as_deref()
+            .map_or_else(|| stem.to_owned(), |m| self.world.target(stem, m));
+        let wsym = self.symbol(&owner, &dec.name);
         let kind = self.typing.nominal(stem, "Span", &[]);
-        let label = self
-            .pool
-            .intern((&self.ns, stem), target.as_bytes().to_vec());
+        let (ns, module) = self.world.coords(&self.ns, stem);
+        let label = self.pool.intern((ns, module), target.as_bytes().to_vec());
         let span = Expression::Record {
             name: encode(&kind),
             fields: vec![

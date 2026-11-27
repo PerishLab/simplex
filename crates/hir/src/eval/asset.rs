@@ -2,7 +2,7 @@ use crate::Fault;
 use crate::layout::{Catalog, Mangle, Type};
 use crate::tree::{Asset, Expression};
 use std::fs;
-use std::path::Path;
+use std::path::{Component, Path};
 
 #[derive(Default)]
 pub struct Pool {
@@ -22,12 +22,24 @@ impl Pool {
         symbol
     }
 
-    pub fn embed(&mut self, ctx: (&str, &str), root: &Path, raw: &str) -> Result<String, Fault> {
+    pub fn embed(
+        &mut self,
+        ctx: (&str, &str),
+        scope: (&Path, bool),
+        raw: &str,
+    ) -> Result<String, Fault> {
+        let (root, strict) = scope;
         let rel = trim(raw);
         let direct = root.join(&rel);
+        if strict && escaped(&rel) {
+            return Err(Fault::Io(direct.display().to_string()));
+        }
         if direct.is_file() {
             let bytes = fs::read(&direct).map_err(|_| Fault::Io(direct.display().to_string()))?;
             return Ok(self.intern(ctx, bytes));
+        }
+        if strict {
+            return Err(Fault::Io(direct.display().to_string()));
         }
         if let Some(parent) = root.parent() {
             let above = parent.join(&rel);
@@ -67,6 +79,15 @@ impl Pool {
     }
 }
 
+fn escaped(rel: &str) -> bool {
+    Path::new(rel).components().any(|comp| {
+        matches!(
+            comp,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        )
+    })
+}
+
 pub fn unescape(raw: &str) -> Vec<u8> {
     let body = trim(raw);
     let mut out = Vec::with_capacity(body.len());
@@ -78,7 +99,7 @@ pub fn unescape(raw: &str) -> Vec<u8> {
             continue;
         }
         if let Some(esc) = chars.next() {
-            out.push(escaped(esc));
+            out.push(slash(esc));
         }
     }
     out
@@ -95,7 +116,7 @@ pub fn trim(raw: &str) -> String {
     }
 }
 
-fn escaped(ch: char) -> u8 {
+fn slash(ch: char) -> u8 {
     match ch {
         'n' => b'\n',
         'r' => b'\r',

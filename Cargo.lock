@@ -746,7 +746,10 @@ version = "0.0.0"
 dependencies = [
  "simplex",
  "simplex-ir",
+ "simplex-object",
  "simplex-package",
+ "simplex-target",
+ "tempfile",
 ]
 
 [[package]]

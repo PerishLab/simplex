@@ -1,5 +1,5 @@
 use crate::front::numeric::encode;
-use crate::front::types::Map;
+use crate::front::types::{Map, Typing};
 use crate::layout::{Mangle, Type};
 use crate::lower::coerce::load;
 use crate::lower::frame::Frame;
@@ -14,27 +14,43 @@ impl<'b, 'a> Frame<'b, 'a> {
         call: (&[syntax::Spec], &[syntax::Expression]),
         pos: (usize, usize),
     ) -> (Expression, Type) {
-        if let syntax::Expression::Word { text, .. } = base {
-            let imports = &self.engine.world.imports;
-            if let Some((leaf, linked)) = imports.get(&(self.stem.clone(), text.clone())).cloned() {
-                if linked {
-                    let sym = Mangle::symbol(&self.engine.ns, &leaf, field);
-                    if let Some(imp) = self.engine.imports.get(&sym).cloned() {
-                        let args = self.arguments(call.1, &imp.inputs);
-                        return (
-                            Expression::Call {
-                                symbol: sym,
-                                arguments: args,
-                                kind: imp.output.clone(),
-                            },
-                            imp.output,
-                        );
-                    }
-                }
-                return self.direct(&leaf, field, call, pos);
-            }
+        if let syntax::Expression::Word { text, .. } = base
+            && self.lookup(text).is_none()
+            && let Some((leaf, linked)) = self
+                .engine
+                .world
+                .imports
+                .get(&(self.stem.clone(), text.clone()))
+                .cloned()
+        {
+            return self.modulecall((&leaf, linked), field, call, pos);
         }
         self.method(base, field, call.1)
+    }
+
+    fn modulecall(
+        &mut self,
+        target: (&str, bool),
+        field: &str,
+        call: (&[syntax::Spec], &[syntax::Expression]),
+        pos: (usize, usize),
+    ) -> (Expression, Type) {
+        let (leaf, linked) = target;
+        if linked {
+            let sym = self.engine.symbol(leaf, field);
+            if let Some(imp) = self.engine.imports.get(&sym).cloned() {
+                let args = self.arguments(call.1, &imp.inputs);
+                return (
+                    Expression::Call {
+                        symbol: sym,
+                        arguments: args,
+                        kind: imp.output.clone(),
+                    },
+                    imp.output,
+                );
+            }
+        }
+        self.direct(leaf, field, call, pos)
     }
 
     fn method(
@@ -55,13 +71,10 @@ impl<'b, 'a> Frame<'b, 'a> {
             .owner(&raw)
             .cloned()
             .unwrap_or_else(|| (self.stem.clone(), raw, Vec::new()));
-        let found = self.locate(&sname, field);
-        let Some(claim) = found else {
+        let Some(claim) = self.locate(&owner, &sname, field) else {
             let mut full = vec![recv];
-            for a in args {
-                full.push(self.expr(a, None).0);
-            }
-            let sym = Mangle::symbol(&self.engine.ns, &owner, field);
+            full.extend(args.iter().map(|a| self.expr(a, None).0));
+            let sym = self.engine.symbol(&owner, field);
             return (
                 Expression::Call {
                     symbol: sym,
@@ -98,18 +111,25 @@ impl<'b, 'a> Frame<'b, 'a> {
         )
     }
 
-    fn locate(&self, subject: &str, field: &str) -> Option<crate::front::world::Claim> {
+    fn locate(
+        &self,
+        owner: &str,
+        subject: &str,
+        field: &str,
+    ) -> Option<crate::front::world::Claim> {
         let claims = &self.engine.world.claims;
         let interfaces = &self.engine.world.interfaces;
+        let matches = |c: &crate::front::world::Claim| {
+            c.subject == subject
+                && (c.methods.contains_key(field)
+                    || interfaces
+                        .get(&c.target)
+                        .is_some_and(|i| i.methods.iter().any(|m| m.name == field)))
+        };
         claims
             .iter()
-            .find(|c| {
-                c.subject == subject
-                    && (c.methods.contains_key(field)
-                        || interfaces
-                            .get(&c.target)
-                            .is_some_and(|i| i.methods.iter().any(|m| m.name == field)))
-            })
+            .find(|c| c.module == owner && matches(c))
+            .or_else(|| claims.iter().find(|c| matches(c)))
             .cloned()
     }
 
@@ -145,10 +165,11 @@ impl<'b, 'a> Frame<'b, 'a> {
         field: &str,
         args: &[syntax::Expression],
     ) -> (Expression, Type) {
-        let interfaces = &self.engine.world.interfaces;
-        let found = interfaces
+        let world = self.engine.world;
+        let found = world
+            .interfaces
             .iter()
-            .find(|((_, n), _)| n == cname)
+            .find(|((m, n), _)| world.traitname(m, n) == cname || n == cname)
             .map(|((m, _), c)| (m.clone(), c.clone()));
         let Some((imod, contract)) = found else {
             let lowered = args.iter().map(|a| self.expr(a, None).0).collect();
@@ -204,11 +225,11 @@ impl<'b, 'a> Frame<'b, 'a> {
 pub fn parametric(spec: &syntax::Spec, generics: &[syntax::Generic]) -> bool {
     match spec {
         syntax::Spec::Named {
-            module: None,
+            module,
             name,
             arguments,
         } => {
-            generics.iter().any(|g| g.name == *name)
+            (module.is_none() && generics.iter().any(|g| g.name == *name))
                 || arguments.iter().any(|a| parametric(a, generics))
         }
         syntax::Spec::Borrow { target, .. } | syntax::Spec::Slice(target) => {
@@ -218,7 +239,13 @@ pub fn parametric(spec: &syntax::Spec, generics: &[syntax::Generic]) -> bool {
     }
 }
 
-pub fn unify(spec: &syntax::Spec, actual: &Type, generics: &[syntax::Generic], subst: &mut Map) {
+pub fn unify(
+    ctx: (&Typing<'_>, &syntax::Spec),
+    actual: &Type,
+    generics: &[syntax::Generic],
+    subst: &mut Map,
+) {
+    let (typing, spec) = ctx;
     match (spec, actual) {
         (
             syntax::Spec::Named {
@@ -230,10 +257,36 @@ pub fn unify(spec: &syntax::Spec, actual: &Type, generics: &[syntax::Generic], s
         ) if arguments.is_empty() && generics.iter().any(|g| g.name == *name) => {
             subst.entry(name.clone()).or_insert_with(|| actual.clone());
         }
-        (syntax::Spec::Borrow { target, .. }, Type::Pointer(inner)) => {
-            unify(target, inner, generics, subst);
+        (syntax::Spec::Named { arguments, .. }, Type::Record(key) | Type::Choice(key))
+            if !arguments.is_empty() =>
+        {
+            unifyrecord((typing, arguments), key, generics, subst)
         }
-        (syntax::Spec::Slice(elem), Type::Slice(inner)) => unify(elem, inner, generics, subst),
+        (
+            syntax::Spec::Named { arguments, .. },
+            Type::List(inner) | Type::Fiber(inner) | Type::Slice(inner),
+        ) if arguments.len() == 1 => unify((typing, &arguments[0]), inner, generics, subst),
+        (syntax::Spec::Borrow { target, .. }, Type::Pointer(inner)) => {
+            unify((typing, target), inner, generics, subst);
+        }
+        (syntax::Spec::Slice(elem), Type::Slice(inner)) => {
+            unify((typing, elem), inner, generics, subst);
+        }
         _ => {}
+    }
+}
+
+fn unifyrecord(
+    ctx: (&Typing<'_>, &[syntax::Spec]),
+    key: &str,
+    generics: &[syntax::Generic],
+    subst: &mut Map,
+) {
+    let (typing, arguments) = ctx;
+    let Some((_, _, args)) = typing.owner(key) else {
+        return;
+    };
+    for (sub, found) in arguments.iter().zip(args) {
+        unify((typing, sub), found, generics, subst);
     }
 }

@@ -8,13 +8,13 @@ this file keeps repository-specific charter and constraints without copying it.
 ## Standing
 
 `simplex` is a **candidate bailiwick** advancing through `Cycle 3` (`Package`,
-`Project #13 · Simplex · Native`): `crates/package` is fully live with 4-tuple
-`Coordinate` identity, lockfile-free `simplex.package/v1` / `simplex.workspace/v1`
-manifests, deterministic `source.tar` archiving, `simplex.seal/v1` 3-tier `x.y.z`
-API/ABI auditing, pure-Rust `AWS SigV4` (`AWS4-HMAC-SHA256`) signing, and
-Create-Only (`If-None-Match: "*"`) S3 object storage + SHA-256 verified local
-cache; cross-package HIR and CLI `seal`/`publish` subcommands land in `P3–P4`,
-and a released Depot `SKILL.md` promise remains `unknown` until formal release.
+`Project #13 · Simplex · Native`): `crates/package` (4-tuple `Coordinate`,
+lockfile-free manifests, `simplex.seal/v1` `x.y.z` audit, Create-Only S3 SigV4
+store) and `crates/hir::build` (cross-package monomorphized `import` and 4-tuple
+`sx_<scope>_<name>_<x>_<y>_<z>_<channel>` `dylib` compilation plans) are live;
+CLI `seal`/`publish`/package-mode `build` wiring and end-to-end S3 black-box
+trials land in `P4`, and a released Depot `SKILL.md` promise remains `unknown`
+until formal release.
 
 ## Explored question
 
@@ -29,7 +29,7 @@ discipline against host-language escape hatches.
 
 ## Responsibility
 
-Simplex owns the `.sx` general-purpose language specification, golden `pass / reject` specimen suites (`cases/*`), grammar, type and borrow checker, `comptime`/`meta` evaluator, 4-tuple library manifest/seal/audit and Create-Only S3 SigV4 store (`simplex-package`), target-neutral `HIR -> LIR` and zero-stack `Fiber<T>` lowering, non-LLVM `x86_64`/`aarch64` native code generator (`simplex-target`), and zero-linker `ELF64`/`PE32+`/`Mach-O 64` binary emitter (`simplex-object`).
+Simplex owns the `.sx` general-purpose language specification, golden `pass / reject` specimen suites (`cases/*`), grammar, type and borrow checker, `comptime`/`meta` evaluator, 4-tuple library manifest/seal/audit and Create-Only S3 SigV4 store (`simplex-package`), cross-package monomorphized `HIR -> LIR` and zero-stack `Fiber<T>` lowering (`simplex-hir`, `simplex-ir`), non-LLVM `x86_64`/`aarch64` native code generator (`simplex-target`), and zero-linker `ELF64`/`PE32+`/`Mach-O 64` binary emitter (`simplex-object`).
 
 ## Workspace topology
 
@@ -48,7 +48,9 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
   `Module`, $O(N)$ `verify`, `simplify`, and zero-stack `Fiber<T>` continuation
   frame lowerer (`prepare`).
 - `crates/hir` (`simplex-hir`, depends on `simplex`, `simplex-ir`,
-  `simplex-package`): Multi-module monomorphized Typed HIR lowerer and
+  `simplex-package`): Standalone and cross-package (`Linked`, `Graph`, `Plan`,
+  `build`) monomorphized Typed HIR lowerer, 4-tuple namespace/symbol isolation,
+  `sx_<scope>_<name>_<x>_<y>_<z>_<channel>` dynamic library planner, and
   target-neutral `LIR` bridge (`translate`, `bridge`).
 - `crates/object` (`simplex-object`, zero dependencies): Pure-Rust unified
   `ELF64` / `PE32+` / SHA-256 signed `Mach-O 64` `Artifact` emitter (`emit`).
@@ -69,7 +71,8 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
 - **Suite**: One orthogonal domain directory (`cases/<domain>`) pairing pure
   `pass/*.sx` and `reject/*.sx` specimens with a `suite.toml` refusal manifest.
 - **Coordinate**: One mandatory 4-tuple library identity `(scope, name, x.y.z, channel)`
-  addressing immutable `<scope>/<name>/<x.y.z>/<channel>/{source.tar, seal.toml}` objects.
+  addressing immutable `<scope>/<name>/<x.y.z>/<channel>/{source.tar, seal.toml}` objects
+  and collision-free `{scope}${name}${major}_{minor}_{patch}${channel}` HIR namespaces.
 - **Module**: One target-neutral `simplex-ir` Block-Arg SSA compilation unit
   lowered to pure synchronous routines after `prepare`.
 - **Artifact**: One unified `simplex-object` code, data, symbol, import and
@@ -85,8 +88,10 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
   missing files fail closed.
 - **Lockfile-free Create-Only S3 & mechanical `x.y.z` law**: `simplex.toml`
   admits only complete 4-tuple coordinates or `{ workspace = "*" }`, forbids
-  `simplex.lock`, gates `x.y.z` transitions via `simplex.seal/v1`, and enforces
-  zero-fallback SHA-256 verification and `If-None-Match: "*"` immutability on S3.
+  `simplex.lock`, gates `x.y.z` transitions via `simplex.seal/v1`, enforces
+  zero-fallback SHA-256 verification and `If-None-Match: "*"` immutability on S3,
+  and isolates multi-version/multi-channel packages across static `import` and
+  `dylib` boundaries without collision.
 - **Frozen tri-OS binary & zero-stack `Fiber<T>` contract**: `simplex build` emits zero-SDK `linux-x86_64` (`ELF64` `.so`), `windows-x86_64` (`PE32+` `.exe`/`.dll`), and `darwin-aarch64` (`16 KiB`-aligned signed `Mach-O 64` `lib*.dylib` with `LC_UUID` and `LC_DYLD_CHAINED_FIXUPS`), passing byte-identical `N1–N4` and `dylib` hot-swap black-box trials across Linux, Windows 11, and Apple Silicon.
 - **Orthogonal systems-language scope**: Simplex benchmarks directly against
   C++, Rust and Zig as a systems-grade general-purpose programming language; it

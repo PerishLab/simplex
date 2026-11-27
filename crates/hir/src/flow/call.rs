@@ -1,6 +1,6 @@
 use crate::flow::fallible::qualified;
 use crate::front::numeric::Value;
-use crate::layout::{Mangle, Type};
+use crate::layout::Type;
 use crate::lower::coerce::load;
 use crate::lower::frame::Frame;
 use crate::tree::{Expression, Routine, Statement};
@@ -90,13 +90,19 @@ impl<'b, 'a> Frame<'b, 'a> {
         let Some(syntax::Expression::Text(raw)) = args.first() else {
             return (Expression::Void, Type::Void);
         };
-        let ns = self.engine.ns.clone();
-        let root = self.engine.root.clone();
-        let sym = self
-            .engine
-            .pool
-            .embed((&ns, &self.stem), &root, raw)
-            .unwrap_or_default();
+        let (ns, module) = self.engine.world.coords(&self.engine.ns, &self.stem);
+        let (ns, module) = (ns.to_owned(), module.to_owned());
+        let (root, strict) = self.engine.world.folder(&self.engine.root, &self.stem);
+        let root = root.to_path_buf();
+        let sym = match self.engine.pool.embed((&ns, &module), (&root, strict), raw) {
+            Ok(found) => found,
+            Err(err) => {
+                if self.engine.fault.is_none() {
+                    self.engine.fault = Some(err);
+                }
+                String::new()
+            }
+        };
         (
             Expression::Bytes(sym),
             Type::Slice(Box::new(Type::Unsigned(1))),
@@ -208,7 +214,7 @@ impl<'b, 'a> Frame<'b, 'a> {
             _ => elem.clone(),
         };
         let label = self.engine.fresh(op);
-        let sym = Mangle::symbol(&self.engine.ns, &self.stem, &label);
+        let sym = self.engine.symbol(&self.stem, &label);
         let arg = Expression::Local(String::from("fibers"), lkind.clone());
         let inner = match op {
             "all" => Expression::All {

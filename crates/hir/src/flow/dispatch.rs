@@ -1,6 +1,6 @@
 use crate::front::numeric::{Value, encode};
 use crate::front::types::Map;
-use crate::layout::{Mangle, Type};
+use crate::layout::Type;
 use crate::lower::engine::Task;
 use crate::lower::frame::Frame;
 use crate::tree::Expression;
@@ -38,8 +38,10 @@ impl<'b, 'a> Frame<'b, 'a> {
             Type::Choice(k) => k.clone(),
             _ => raw,
         };
-        let catalog = &self.engine.typing.catalog;
-        let adef = catalog
+        let adef = self
+            .engine
+            .typing
+            .catalog
             .choices
             .get(&key)
             .and_then(|c| c.arms.iter().find(|a| a.name == arm))
@@ -95,17 +97,17 @@ impl<'b, 'a> Frame<'b, 'a> {
         call: (&[syntax::Spec], &[syntax::Expression]),
         pos: (usize, usize),
     ) -> (Expression, Type) {
-        if let Some(Type::Function { inputs, output }) = self.lookup(name) {
+        if stem == self.stem
+            && let Some(Type::Function { inputs, output }) = self.lookup(name)
+        {
             let args = self.arguments(call.1, &inputs);
+            let fkind = Type::Function {
+                inputs,
+                output: output.clone(),
+            };
             return (
                 Expression::Indirect {
-                    callee: Box::new(Expression::Local(
-                        name.to_owned(),
-                        Type::Function {
-                            inputs,
-                            output: output.clone(),
-                        },
-                    )),
+                    callee: Box::new(Expression::Local(name.to_owned(), fkind)),
                     arguments: args,
                     kind: *output.clone(),
                 },
@@ -141,7 +143,7 @@ impl<'b, 'a> Frame<'b, 'a> {
         let bindings = &self.engine.world.bindings;
         let Some(b) = bindings.get(&(stem.to_owned(), name.to_owned())).cloned() else {
             let args: Vec<Expression> = call.1.iter().map(|a| self.expr(a, None).0).collect();
-            let sym = Mangle::symbol(&self.engine.ns, stem, name);
+            let sym = self.engine.symbol(stem, name);
             return (
                 Expression::Call {
                     symbol: sym,
@@ -185,7 +187,7 @@ impl<'b, 'a> Frame<'b, 'a> {
         }
         let mut runtime = self.coerceargs(stem, bound.lowered, &subst);
         let custom = !generics.is_empty() || !bound.constants.is_empty();
-        let base = Mangle::symbol(&self.engine.ns, stem, &b.name);
+        let base = self.engine.symbol(stem, &b.name);
         let sym = match custom {
             true => format!("{base}${}", bound.suffix.join("$")),
             false => base,
@@ -256,7 +258,7 @@ impl<'b, 'a> Frame<'b, 'a> {
                 .map(|s| self.engine.typing.resolve(stem, s, subst));
             let (val, ak) = self.expr(arg, expected.as_ref());
             if let Some(spec) = &param.annotation {
-                crate::flow::method::unify(spec, &ak, generics, subst);
+                crate::flow::method::unify((&self.engine.typing, spec), &ak, generics, subst);
             }
             lowered.push((val, ak, param.annotation.clone()));
         }
