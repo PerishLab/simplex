@@ -1,5 +1,6 @@
 use super::support::{check, node, write};
-use simplex_hir::{Graph, build};
+use simplex_hir::{Graph, Mangle, build};
+use simplex_package::Coordinate;
 use std::collections::BTreeMap;
 use tempfile::tempdir;
 
@@ -25,7 +26,7 @@ fn multichannel() {
     );
     write(
         &stabledir,
-        "math.sx",
+        "stable.sx",
         concat!(
             "util := import util\n\n",
             "pub Vector := struct {\n    pub x: i64\n    pub y: i64\n}\n\n",
@@ -39,7 +40,7 @@ fn multichannel() {
     );
     write(
         &canarydir,
-        "math.sx",
+        "canary.sx",
         concat!(
             "util := import util\n\n",
             "pub Vector := struct {\n    pub x: i64\n    pub y: i64\n    pub z: i64\n}\n\n",
@@ -48,17 +49,17 @@ fn multichannel() {
     );
     write(
         &vtwodir,
-        "math.sx",
+        "modern.sx",
         "pub sum := (seed: i64) -> i64 {\n    seed * 10\n}\n",
     );
     write(
         &leftdir,
         "left.sx",
         concat!(
-            "span := import span\n",
-            "math := import math\n\n",
+            "span := import span.span\n",
+            "stable := import math.stable\n\n",
             "pub build := (seed: i64) -> span.Span {\n",
-            "    var total := math.sum(math.Vector { x: seed, y: seed + 1 })\n",
+            "    var total := stable.sum(stable.Vector { x: seed, y: seed + 1 })\n",
             "    span.Span { start: seed, length: total }\n",
             "}\n",
         ),
@@ -67,23 +68,23 @@ fn multichannel() {
         &rightdir,
         "right.sx",
         concat!(
-            "span := import span\n",
-            "math := import math\n\n",
+            "span := import span.span\n",
+            "canary := import math.canary\n\n",
             "pub consume := (window: span.Span) -> i64 {\n",
-            "    var vec := math.Vector { x: window.start, y: window.length, z: 5 }\n",
-            "    math.sum(vec)\n",
+            "    var vec := canary.Vector { x: window.start, y: window.length, z: 5 }\n",
+            "    canary.sum(vec)\n",
             "}\n",
         ),
     );
     write(
         &appdir,
-        "app.sx",
+        "main.sx",
         concat!(
-            "left := import left\n",
-            "right := import right\n",
-            "stable := import stable\n",
-            "canary := import canary\n",
-            "modern := import modern\n\n",
+            "left := import left.left\n",
+            "right := import right.right\n",
+            "stable := import stable.stable\n",
+            "canary := import canary.canary\n",
+            "modern := import modern.modern\n\n",
             "pub main := () -> i64 {\n",
             "    var window := left.build(4)\n",
             "    var a := stable.sum(stable.Vector { x: 1, y: 2 })\n",
@@ -94,14 +95,13 @@ fn multichannel() {
     );
     let mut packages = BTreeMap::new();
     for item in [
-        node("perish/span/1.0.0/stable", &sharedir, "span.sx", &[]),
-        node("perish/math/1.0.0/stable", &stabledir, "math.sx", &[]),
-        node("perish/math/1.0.0/canary", &canarydir, "math.sx", &[]),
-        node("perish/math/2.0.0/stable", &vtwodir, "math.sx", &[]),
+        node("perish/span/1.0.0/stable", &sharedir, &[]),
+        node("perish/math/1.0.0/stable", &stabledir, &[]),
+        node("perish/math/1.0.0/canary", &canarydir, &[]),
+        node("perish/math/2.0.0/stable", &vtwodir, &[]),
         node(
             "perish/left/1.0.0/stable",
             &leftdir,
-            "left.sx",
             &[
                 ("span", "perish/span/1.0.0/stable"),
                 ("math", "perish/math/1.0.0/stable"),
@@ -110,7 +110,6 @@ fn multichannel() {
         node(
             "perish/right/1.0.0/stable",
             &rightdir,
-            "right.sx",
             &[
                 ("span", "perish/span/1.0.0/stable"),
                 ("math", "perish/math/1.0.0/canary"),
@@ -122,7 +121,6 @@ fn multichannel() {
     let root = node(
         "perish/app/1.0.0/stable",
         &appdir,
-        "app.sx",
         &[
             ("left", "perish/left/1.0.0/stable"),
             ("right", "perish/right/1.0.0/stable"),
@@ -138,10 +136,19 @@ fn multichannel() {
         .iter()
         .map(|f| f.symbol.as_str())
         .collect();
-    assert!(symbols.contains(&"sx$perish$math$1_0_0$stable$math$sum"));
-    assert!(symbols.contains(&"sx$perish$math$1_0_0$canary$math$sum"));
-    assert!(symbols.contains(&"sx$perish$math$2_0_0$stable$math$sum"));
-    assert!(symbols.contains(&"sx$perish$math$1_0_0$stable$util$factor"));
-    assert!(symbols.contains(&"sx$perish$math$1_0_0$canary$util$factor"));
+    let stable = Coordinate::parse("perish/math/1.0.0/stable")
+        .unwrap()
+        .namespace();
+    let canary = Coordinate::parse("perish/math/1.0.0/canary")
+        .unwrap()
+        .namespace();
+    let modern = Coordinate::parse("perish/math/2.0.0/stable")
+        .unwrap()
+        .namespace();
+    assert!(symbols.contains(&Mangle::symbol(&stable, "stable", "sum").as_str()));
+    assert!(symbols.contains(&Mangle::symbol(&canary, "canary", "sum").as_str()));
+    assert!(symbols.contains(&Mangle::symbol(&modern, "modern", "sum").as_str()));
+    assert!(symbols.contains(&Mangle::symbol(&stable, "util", "factor").as_str()));
+    assert!(symbols.contains(&Mangle::symbol(&canary, "util", "factor").as_str()));
     check(&plan.stem, &plan.module, false);
 }

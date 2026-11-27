@@ -1,4 +1,4 @@
-use super::{Manifest, PACKAGE, WORKSPACE, forbid};
+use super::{LEMMA, Manifest, WORKSPACE, forbid};
 use crate::{Coordinate, Fault};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -68,7 +68,7 @@ impl Workspace {
     pub fn coordinates(&self) -> BTreeMap<String, Coordinate> {
         self.members
             .iter()
-            .map(|(name, (_, manifest))| (name.clone(), manifest.library.clone()))
+            .map(|(name, (_, manifest))| (name.clone(), manifest.lemma.clone()))
             .collect()
     }
 }
@@ -88,7 +88,7 @@ fn load(root: &Path, list: &[Value]) -> Result<BTreeMap<String, (PathBuf, Manife
         }
         let folder = root.join(rel);
         let manifest = Manifest::load(&folder)?;
-        let name = manifest.library.name.clone();
+        let name = manifest.lemma.name.clone();
         if members.contains_key(&name) {
             return Err(Fault::Workspace(format!(
                 "duplicate workspace member name: {name}"
@@ -141,7 +141,7 @@ fn probe(folder: &Path) -> Result<Option<Workspace>, Fault> {
         .map_err(|err| Fault::Manifest(err.to_string()))?;
     match table.get("schema").and_then(Value::as_str) {
         Some(WORKSPACE) => Workspace::load(folder).map(Some),
-        Some(PACKAGE) => Ok(None),
+        Some(LEMMA) => Ok(None),
         Some(other) => Err(Fault::Manifest(format!("unsupported schema: {other}"))),
         None => Err(Fault::Manifest("missing schema field".into())),
     }

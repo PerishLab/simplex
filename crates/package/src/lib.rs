@@ -8,7 +8,7 @@ pub mod store;
 pub mod surface;
 
 pub use audit::{Release, Verdict};
-pub use manifest::{Dependency, Manifest, PACKAGE, WORKSPACE, Workspace};
+pub use manifest::{Dependency, LEMMA, Manifest, WORKSPACE, Workspace};
 pub use model::{Coordinate, Version};
 pub use seal::{Locked, SEAL, Seal};
 pub use signing::{Credentials, Endpoint};

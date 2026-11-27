@@ -88,7 +88,7 @@ fn prepare(root: &Path, store: &Store, strict: bool) -> Result<Prepared, String>
     let manifest = if raw
         .dependencies
         .values()
-        .any(|item| matches!(item, Dependency::Workspace))
+        .any(|item| matches!(item, Dependency::Workspace(_)))
     {
         let Some(found) = workspace.as_ref() else {
             return Err("workspace manifest required for workspace dependency".into());
@@ -104,7 +104,7 @@ fn prepare(root: &Path, store: &Store, strict: bool) -> Result<Prepared, String>
     let contract =
         simplex_package::surface::extract(root, &manifest).map_err(|error| error.to_string())?;
     let seal = Seal {
-        coordinate: manifest.library,
+        coordinate: manifest.lemma,
         source,
         api: contract.api.clone(),
         abi: contract.abi.clone(),
@@ -157,7 +157,7 @@ fn local(
     let Some((folder, member)) = space
         .members
         .values()
-        .find(|(_, item)| item.library == *coordinate)
+        .find(|(_, item)| item.lemma == *coordinate)
     else {
         return Err(format!("missing dependency in cache: {coordinate}"));
     };

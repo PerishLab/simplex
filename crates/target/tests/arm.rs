@@ -261,6 +261,8 @@ fn conventions() {
     ] {
         assert!(out.imports.iter().any(|i| i.name == name));
     }
+    let want = "@executable_path/codec.dylib";
+    assert!(out.imports.iter().any(|i| i.library == want));
     assert!(
         words(&out.code)
             .iter()

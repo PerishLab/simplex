@@ -249,6 +249,7 @@ pub main := () -> i64 {
 ",
     );
     sandbox.compile(&unit, None, true);
+    assert!(!sandbox.join("libcodec.dll").exists());
     let library = Image::open(&sandbox.join("codec.dll"));
     library.verify(true);
     let symbols = library.exports();

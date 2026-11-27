@@ -15,11 +15,15 @@ fn populate(root: &Path) {
     fs::create_dir_all(root.join("nested")).expect("nested");
     fs::write(
         root.join("simplex.toml"),
-        "schema = \"simplex.package/v1\"\n[library]\nscope = \"perish\"\nname = \"codec\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n[dependencies]\nwire = { workspace = \"*\" }\n",
+        "schema = \"simplex.lemma/v1\"\n[lemma]\nscope = \"perish\"\nname = \"codec.json\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n[dependencies]\nwire = { workspace = \"*\" }\ntext = { workspace = \"codec.text\" }\n",
     )
     .expect("raw toml");
     fs::write(root.join("sub/helper.sx"), "pub value := 7\n").expect("helper");
-    fs::write(root.join("codec.sx"), "import sub\npub run := sub.value\n").expect("codec");
+    fs::write(
+        root.join("parse.sx"),
+        "helper := import sub.helper\npub run := helper.value\n",
+    )
+    .expect("parse");
     fs::write(root.join("assets/weights.bin"), [1_u8, 2, 3, 4]).expect("asset");
     fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").expect("git head");
     fs::write(root.join(".hidden"), "secret").expect("hidden");
@@ -87,6 +91,10 @@ fn determinism() {
         "wire".into(),
         Coordinate::parse("perish/wire/0.2.0/stable").expect("wire"),
     );
+    members.insert(
+        "codec.text".into(),
+        Coordinate::parse("perish/codec.text/0.3.0/stable").expect("text"),
+    );
     let rewritten = raw.rewrite(&members).expect("rewrite");
     let (bytes, hash) = pack(first.path(), &rewritten).expect("pack first");
     assert_eq!(digest(&bytes), hash);
@@ -98,7 +106,7 @@ fn determinism() {
         vec![
             "simplex.toml",
             "assets/weights.bin",
-            "codec.sx",
+            "parse.sx",
             "sub/helper.sx"
         ]
     );
@@ -109,10 +117,10 @@ fn determinism() {
     fs::create_dir_all(second.path().join("sub")).expect("sub");
     fs::write(second.path().join("assets/weights.bin"), [1_u8, 2, 3, 4]).expect("w");
     fs::write(
-        second.path().join("codec.sx"),
-        "import sub\npub run := sub.value\n",
+        second.path().join("parse.sx"),
+        "helper := import sub.helper\npub run := helper.value\n",
     )
-    .expect("c");
+    .expect("p");
     fs::write(second.path().join("sub/helper.sx"), "pub value := 7\n").expect("h");
     let (again, secondhash) = pack(second.path(), &rewritten).expect("pack second");
     assert_eq!(bytes, again);
@@ -127,6 +135,10 @@ fn extraction() {
     members.insert(
         "wire".into(),
         Coordinate::parse("perish/wire/0.2.0/stable").expect("wire"),
+    );
+    members.insert(
+        "codec.text".into(),
+        Coordinate::parse("perish/codec.text/0.3.0/stable").expect("text"),
     );
     let rewritten = Manifest::load(src.path())
         .expect("load")

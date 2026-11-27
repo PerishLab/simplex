@@ -1,5 +1,6 @@
 use crate::consumer;
-use crate::harness::{self, Client, Sandbox};
+use crate::fixture;
+use crate::harness::{Client, Sandbox};
 use crate::server::Server;
 use std::env;
 use std::fs;
@@ -13,70 +14,61 @@ fn prepare() -> Sandbox {
     let server = Server::start("cross", "auto", false);
     let client = Client::signed(&server, "auto");
     let mut sandbox = Sandbox::open();
-    harness::stage(&sandbox);
-    harness::math(&sandbox, "math", "canary", 5);
-    assert!(
-        sandbox
-            .run(&["publish", "workspace/wire"], Some(&client))
-            .passed
-    );
-    assert!(
-        sandbox
-            .run(&["publish", "workspace/codec"], Some(&client))
-            .passed
-    );
-    assert!(sandbox.run(&["publish", "math"], Some(&client)).passed);
+    consumer::upstream(&sandbox, &client);
     sandbox.fresh();
     consumer::consumer(&sandbox, "canary");
-    let win = sandbox.join("win/app.exe");
-    let first = sandbox.run(
-        &[
-            "build",
-            "app",
-            "--target",
-            "windows-x86_64",
-            "-o",
-            win.to_str().expect("win path"),
-        ],
-        Some(&client),
-    );
-    assert!(first.passed, "windows cross build failed: {}", first.stderr);
-    let mac = sandbox.join("mac/app");
-    let second = sandbox.run(
-        &[
-            "build",
-            "app",
-            "--target",
-            "darwin-aarch64",
-            "-o",
-            mac.to_str().expect("mac path"),
-        ],
-        Some(&client),
-    );
-    assert!(
-        second.passed,
-        "darwin cross build failed: {}",
-        second.stderr
-    );
+    for (target, output) in [
+        ("windows-x86_64", "win/app.exe"),
+        ("darwin-aarch64", "mac/app"),
+    ] {
+        let path = sandbox.join(output);
+        let built = sandbox.run(
+            &[
+                "build",
+                "app",
+                "--target",
+                target,
+                "-o",
+                path.to_str().expect("path"),
+            ],
+            Some(&client),
+        );
+        assert!(
+            built.passed,
+            "{target} cross build failed: {}",
+            built.stderr
+        );
+    }
     sandbox
 }
 
 #[test]
 fn portable() {
     let sandbox = prepare();
-    let executable = sandbox.join("win/app.exe");
-    let dynamic = sandbox.join("win/sx_perish_math_1_0_0_canary.dll");
-    assert!(executable.exists());
-    assert!(dynamic.exists());
-    pe(&executable, false, b"sx_perish_math_1_0_0_canary.dll");
-    pe(&dynamic, true, b"sx$perish$math$1_0_0$canary$math$combine");
+    let stem = fixture::stem("math", "1.0.0", "canary");
+    let symbol = format!("sx${stem}$metric$combine");
+    let windows = format!("{stem}.dll");
+    assert_eq!(
+        fixture::listing(&sandbox.join("win")),
+        fixture::sorted(vec![windows.clone(), String::from("app.exe")])
+    );
+    pe(&sandbox.join("win/app.exe"), false, windows.as_bytes());
+    pe(
+        &sandbox.join(&format!("win/{windows}")),
+        true,
+        symbol.as_bytes(),
+    );
 
-    let host = sandbox.join("mac/app");
-    let dylib = sandbox.join("mac/libsx_perish_math_1_0_0_canary.dylib");
-    assert!(host.exists());
-    assert!(dylib.exists());
-    mach(&host, false, b"libsx_perish_math_1_0_0_canary.dylib");
-    mach(&dylib, true, b"sx$perish$math$1_0_0$canary$math$combine");
+    let apple = format!("{stem}.dylib");
+    assert_eq!(
+        fixture::listing(&sandbox.join("mac")),
+        fixture::sorted(vec![apple.clone(), String::from("app")])
+    );
+    let install = format!("@executable_path/{apple}\0");
+    mach(&sandbox.join("mac/app"), false, install.as_bytes());
+    let dylib = sandbox.join(&format!("mac/{apple}"));
+    mach(&dylib, true, install.as_bytes());
+    mach(&dylib, true, format!("_{symbol}").as_bytes());
 }
 
 fn pe(path: &Path, shared: bool, needle: &[u8]) {
@@ -134,12 +126,11 @@ fn windows() {
         return;
     }
     let sandbox = prepare();
+    let library = format!("{}.dll", fixture::stem("math", "1.0.0", "canary"));
     let executable = base(&fs::read(sandbox.join("win/app.exe")).expect("exe"));
-    let dynamic =
-        base(&fs::read(sandbox.join("win/sx_perish_math_1_0_0_canary.dll")).expect("dll"));
-    let stream = format!(
-        "PUT sx_perish_math_1_0_0_canary.dll 0 {dynamic}\nPUT app.exe 1 {executable}\nRUN package app.exe\n"
-    );
+    let dynamic = base(&fs::read(sandbox.join(&format!("win/{library}"))).expect("dll"));
+    let stream =
+        format!("PUT {library} 0 {dynamic}\nPUT app.exe 1 {executable}\nRUN package app.exe\n");
     let command = format!(
         "powershell -NoProfile -NonInteractive -EncodedCommand {}",
         wide(POWERSHELL)
@@ -154,12 +145,10 @@ fn apple() {
         return;
     }
     let sandbox = prepare();
+    let library = format!("{}.dylib", fixture::stem("math", "1.0.0", "canary"));
     let executable = base(&fs::read(sandbox.join("mac/app")).expect("mach app"));
-    let dynamic =
-        base(&fs::read(sandbox.join("mac/libsx_perish_math_1_0_0_canary.dylib")).expect("dylib"));
-    let stream = format!(
-        "PUT libsx_perish_math_1_0_0_canary.dylib 0 {dynamic}\nPUT app 1 {executable}\nRUN package app\n"
-    );
+    let dynamic = base(&fs::read(sandbox.join(&format!("mac/{library}"))).expect("dylib"));
+    let stream = format!("PUT {library} 0 {dynamic}\nPUT app 1 {executable}\nRUN package app\n");
     let command = format!(
         "eval \"$(printf %s {} | base64 -d)\"",
         base(POSIX.as_bytes())

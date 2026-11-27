@@ -26,7 +26,7 @@ pub fn asset(root: &Path, rel: &str, bytes: &[u8]) {
     fs::write(path, bytes).expect("asset");
 }
 
-pub fn node(spec: &str, root: &Path, entry: &str, deps: &[(&str, &str)]) -> Linked {
+pub fn node(spec: &str, root: &Path, deps: &[(&str, &str)]) -> Linked {
     let coordinate = Coordinate::parse(spec).expect("coordinate");
     let dependencies = deps
         .iter()
@@ -40,7 +40,6 @@ pub fn node(spec: &str, root: &Path, entry: &str, deps: &[(&str, &str)]) -> Link
     Linked {
         coordinate,
         root: root.to_path_buf(),
-        entry: entry.to_owned(),
         dependencies,
     }
 }

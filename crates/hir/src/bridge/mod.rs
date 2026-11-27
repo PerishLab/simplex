@@ -125,12 +125,11 @@ fn external(item: &Import, unit: &Unit) -> External {
 }
 
 fn stem(library: &str) -> String {
-    let tail = library.strip_prefix("lib").unwrap_or(library);
-    let clean = tail
+    let clean = library
         .strip_suffix(".so")
-        .or_else(|| tail.strip_suffix(".dylib"))
-        .or_else(|| tail.strip_suffix(".dll"))
-        .unwrap_or(tail);
+        .or_else(|| library.strip_suffix(".dylib"))
+        .or_else(|| library.strip_suffix(".dll"))
+        .unwrap_or(library);
     clean.to_owned()
 }
 

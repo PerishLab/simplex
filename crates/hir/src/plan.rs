@@ -12,7 +12,6 @@ use std::path::PathBuf;
 pub struct Linked {
     pub coordinate: Coordinate,
     pub root: PathBuf,
-    pub entry: String,
     pub dependencies: BTreeMap<String, Coordinate>,
 }
 
@@ -46,7 +45,33 @@ struct Assembler<'a> {
     dynamics: Vec<(Coordinate, Module)>,
 }
 
+pub fn register(
+    seen: &mut BTreeMap<String, Coordinate>,
+    stem: &str,
+    coordinate: &Coordinate,
+) -> Result<(), Fault> {
+    if let Some(existing) = seen.get(stem) {
+        if existing != coordinate {
+            return Err(Fault::Collision(format!(
+                "dylib hash collision on {stem}: {existing} vs {coordinate}"
+            )));
+        }
+        return Ok(());
+    }
+    seen.insert(stem.to_owned(), coordinate.clone());
+    Ok(())
+}
+
 pub fn build(graph: &Graph, shared: bool) -> Result<Plan, Fault> {
+    let mut seen = BTreeMap::new();
+    register(
+        &mut seen,
+        &graph.root.coordinate.stem(),
+        &graph.root.coordinate,
+    )?;
+    for coordinate in graph.packages.keys() {
+        register(&mut seen, &coordinate.stem(), coordinate)?;
+    }
     let mut assembler = Assembler {
         graph,
         building: BTreeSet::new(),
@@ -57,7 +82,7 @@ pub fn build(graph: &Graph, shared: bool) -> Result<Plan, Fault> {
     let namespace = graph.root.coordinate.namespace();
     let stem = match shared {
         true => graph.root.coordinate.stem(),
-        false => graph.root.coordinate.name.clone(),
+        false => graph.root.coordinate.leaf().to_owned(),
     };
     Ok(Plan {
         namespace,
@@ -81,7 +106,7 @@ impl<'a> Assembler<'a> {
                 column: pos.1,
             }));
         }
-        let (bundle, requested) = load(self.graph, target, &self.building)?;
+        let (bundle, requested) = load(self.graph, target, shared, &self.building)?;
         for (coordinate, site) in requested {
             self.dependency(&coordinate, site)?;
         }

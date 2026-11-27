@@ -1,48 +1,50 @@
-use crate::harness::{self, Client, Sandbox};
+use crate::fixture;
+use crate::harness::{Client, Sandbox};
 use crate::server::Server;
 use std::fs;
 
 pub fn consumer(sandbox: &Sandbox, channel: &str) {
+    let mut dependencies = fixture::exact("json", "codec.json", "stable");
+    dependencies.push_str(&fixture::exact("math", "math", channel));
     sandbox.write(
         "app/simplex.toml",
-        &format!(
-            "\
-schema = \"simplex.package/v1\"
-
-[library]
-scope = \"perish\"
-name = \"app\"
-version = \"0.1.0\"
-channel = \"stable\"
-entry = \"app.sx\"
-
-[dependencies]
-codec = {{ scope = \"perish\", name = \"codec\", version = \"1.0.0\", channel = \"stable\" }}
-math = {{ scope = \"perish\", name = \"math\", version = \"1.0.0\", channel = \"{channel}\" }}
-"
-        ),
+        &fixture::manifest("app", "0.1.0", "stable", &dependencies),
     );
     sandbox.write(
-        "app/app.sx",
+        "app/main.sx",
         "\
-codec := import codec
-math := dylib math
+parse := import json.parse
+metric := dylib math.metric
 emit := extern \"c\" \"write\" fn(handle: i32, buffer: &u8, count: usize) -> isize
 Scale := struct {
     factor: u64
 }
-Scale : math.Metric {
-    weigh: (self: &Scale, pair: &math.Pair) -> u64 {
+Scale : metric.Metric {
+    weigh: (self: &Scale, pair: &metric.Pair) -> u64 {
         (pair.left + pair.right) * self.factor
     }
 }
 pub main := () -> i64 {
     var banner: List<u8> = [79, 75]
     scale := Scale { factor: 2 }
-    pair := math.Pair { left: 6, right: 9 }
-    emit(1, &banner[0], 2).as<i64>() + (codec.stamp(10) + math.combine(&scale, &pair) + scale.factor + pair.left).as<i64>()
+    pair := metric.Pair { left: 6, right: 9 }
+    emit(1, &banner[0], 2).as<i64>() + (parse.scan(10) + metric.combine(&scale, &pair) + scale.factor + pair.left).as<i64>()
 }
 ",
+    );
+}
+
+pub fn upstream(sandbox: &Sandbox, client: &Client) {
+    fixture::stage(sandbox);
+    fixture::math(sandbox, "math", "canary", 5);
+    fixture::publish(
+        sandbox,
+        client,
+        &[
+            "workspace/lemmas/wire",
+            "workspace/lemmas/codec/json",
+            "math",
+        ],
     );
 }
 
@@ -51,21 +53,7 @@ fn fallback() {
     let server = Server::start("channels", "auto", false);
     let client = Client::signed(&server, "auto");
     let mut sandbox = Sandbox::open();
-    harness::stage(&sandbox);
-    harness::math(&sandbox, "math", "canary", 5);
-
-    assert!(
-        sandbox
-            .run(&["publish", "workspace/wire"], Some(&client))
-            .passed
-    );
-    assert!(
-        sandbox
-            .run(&["publish", "workspace/codec"], Some(&client))
-            .passed
-    );
-    assert!(sandbox.run(&["publish", "math"], Some(&client)).passed);
-
+    upstream(&sandbox, &client);
     sandbox.fresh();
     consumer(&sandbox, "stable");
     let binary = sandbox.join("out/app");
@@ -77,6 +65,7 @@ fn fallback() {
         !missing.passed,
         "channel mismatch must never fall back to canary"
     );
+    assert!(!binary.exists());
 }
 
 #[test]
@@ -85,21 +74,9 @@ fn pipeline() {
     let writer = Client::signed(&server, "auto");
     let reader = Client::unsigned(&server, "auto");
     let mut sandbox = Sandbox::open();
-    harness::stage(&sandbox);
-    harness::math(&sandbox, "math", "canary", 5);
-
+    fixture::math(&sandbox, "math", "canary", 5);
     assert!(!sandbox.run(&["publish", "math"], Some(&reader)).passed);
-    assert!(
-        sandbox
-            .run(&["publish", "workspace/wire"], Some(&writer))
-            .passed
-    );
-    assert!(
-        sandbox
-            .run(&["publish", "workspace/codec"], Some(&writer))
-            .passed
-    );
-    assert!(sandbox.run(&["publish", "math"], Some(&writer)).passed);
+    upstream(&sandbox, &writer);
 
     sandbox.fresh();
     consumer(&sandbox, "canary");
@@ -120,21 +97,24 @@ fn pipeline() {
             .iter()
             .any(|event| event.method == "GET" && !event.signed && event.status == 200)
     );
-    assert!(binary.exists());
-    assert!(folder.join("libsx_perish_math_1_0_0_canary.so").exists());
-    assert!(!folder.join("libsx_perish_codec_1_0_0_stable.so").exists());
+    let library = format!("{}.so", fixture::stem("math", "1.0.0", "canary"));
+    assert_eq!(
+        fixture::listing(&folder),
+        fixture::sorted(vec![String::from("app"), library.clone()])
+    );
     let run = sandbox.execute(&binary, &folder);
     assert_eq!(run.code, 105);
     assert_eq!(run.stdout, b"OK");
 
     server.stop();
-    let offline = sandbox.join("offline/app");
+    let second = sandbox.join("offline");
+    let offline = second.join("app");
     let cached = sandbox.run(
         &[
             "build",
             "app/simplex.toml",
             "-o",
-            offline.to_str().expect("offline binary"),
+            offline.to_str().expect("offline"),
         ],
         None,
     );
@@ -143,23 +123,20 @@ fn pipeline() {
         "offline cache build failed: {}",
         cached.stderr
     );
-    let second = sandbox.join("offline");
-    assert!(second.join("libsx_perish_math_1_0_0_canary.so").exists());
+    assert_eq!(
+        fixture::listing(&second),
+        fixture::sorted(vec![String::from("app"), library])
+    );
     let rerun = sandbox.execute(&offline, &second);
     assert_eq!(rerun.code, 105);
     assert_eq!(rerun.stdout, b"OK");
 
     let entry = sandbox.join("entry/app");
     let third = sandbox.run(
-        &[
-            "build",
-            "app/app.sx",
-            "-o",
-            entry.to_str().expect("entry binary"),
-        ],
-        Some(&reader),
+        &["build", "app/main.sx", "-o", entry.to_str().expect("entry")],
+        None,
     );
-    assert!(third.passed, "entry .sx build failed: {}", third.stderr);
+    assert!(third.passed, "main.sx build failed: {}", third.stderr);
 
     let archive = sandbox
         .home()
@@ -168,14 +145,32 @@ fn pipeline() {
     bytes[0] ^= 0xff;
     fs::write(&archive, &bytes).expect("corrupt cached source.tar");
     let tampered = sandbox.join("tampered/app");
-    assert!(
-        !sandbox
-            .run(
-                &["build", "app", "-o", tampered.to_str().expect("tampered")],
-                None
-            )
-            .passed
+    let refused = sandbox.run(
+        &["build", "app", "-o", tampered.to_str().expect("tampered")],
+        None,
     );
+    assert!(!refused.passed);
+}
+
+fn side(alias: &str, field: &str) -> String {
+    format!(
+        "\
+metric := dylib {alias}.metric
+Unit := struct {{
+    weight: u64
+}}
+Unit : metric.Metric {{
+    weigh: (self: &Unit, pair: &metric.Pair) -> u64 {{
+        pair.left + pair.right + self.weight
+    }}
+}}
+pub score := () -> u64 {{
+    unit := Unit {{ weight: 3 }}
+    pair := metric.Pair {{ left: 4, right: 6 }}
+    metric.combine(&unit, &pair) + pair.{field} + unit.weight
+}}
+"
+    )
 }
 
 #[test]
@@ -183,64 +178,52 @@ fn coexistence() {
     let server = Server::start("multi", "auto", false);
     let client = Client::signed(&server, "auto");
     let mut sandbox = Sandbox::open();
-    harness::math(&sandbox, "canary", "canary", 5);
-    harness::math(&sandbox, "stable", "stable", 20);
-    assert!(sandbox.run(&["publish", "canary"], Some(&client)).passed);
-    assert!(sandbox.run(&["publish", "stable"], Some(&client)).passed);
+    fixture::math(&sandbox, "canary", "canary", 5);
+    fixture::math(&sandbox, "stable", "stable", 20);
+    fixture::publish(&sandbox, &client, &["canary", "stable"]);
 
     sandbox.fresh();
+    let mut dependencies = fixture::exact("alpha", "math", "canary");
+    dependencies.push_str(&fixture::exact("beta", "math", "stable"));
     sandbox.write(
         "dual/simplex.toml",
-        "\
-schema = \"simplex.package/v1\"
-
-[library]
-scope = \"perish\"
-name = \"dual\"
-version = \"0.1.0\"
-channel = \"stable\"
-entry = \"dual.sx\"
-
-[dependencies]
-alpha = { scope = \"perish\", name = \"math\", version = \"1.0.0\", channel = \"canary\" }
-beta = { scope = \"perish\", name = \"math\", version = \"1.0.0\", channel = \"stable\" }
-",
+        &fixture::manifest("dual", "0.1.0", "stable", &dependencies),
     );
+    sandbox.write("dual/left.sx", &side("alpha", "left"));
+    sandbox.write("dual/right.sx", &side("beta", "right"));
     sandbox.write(
-        "dual/dual.sx",
+        "dual/main.sx",
         "\
-alpha := dylib alpha
-beta := dylib beta
-Unit := struct {
-    weight: u64
-}
-Unit : alpha.Metric {
-    weigh: (self: &Unit, pair: &alpha.Pair) -> u64 {
-        pair.left + pair.right + self.weight
-    }
-}
-Unit : beta.Metric {
-    weigh: (self: &Unit, pair: &beta.Pair) -> u64 {
-        pair.left + pair.right + self.weight
-    }
-}
+left := import left
+right := import right
 pub main := () -> i64 {
-    unit := Unit { weight: 3 }
-    left := alpha.Pair { left: 4, right: 6 }
-    right := beta.Pair { left: 4, right: 6 }
-    (alpha.combine(&unit, &left) + left.left + beta.combine(&unit, &right) + right.right).as<i64>()
+    (left.score() + right.score()).as<i64>()
 }
 ",
     );
-    let folder = sandbox.join("dual-out");
+    let folder = sandbox.join("output");
     let binary = folder.join("dual");
     let built = sandbox.run(
         &["build", "dual", "-o", binary.to_str().expect("dual binary")],
         Some(&client),
     );
     assert!(built.passed, "dual channel build failed: {}", built.stderr);
-    assert!(folder.join("libsx_perish_math_1_0_0_canary.so").exists());
-    assert!(folder.join("libsx_perish_math_1_0_0_stable.so").exists());
+    let canary = fixture::stem("math", "1.0.0", "canary");
+    let stable = fixture::stem("math", "1.0.0", "stable");
+    assert_ne!(canary, stable);
+    for stem in [&canary, &stable] {
+        assert_eq!(stem.len(), 16);
+        assert!(
+            stem.bytes()
+                .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        );
+    }
+    let expected = fixture::sorted(vec![
+        format!("{canary}.so"),
+        format!("{stable}.so"),
+        String::from("dual"),
+    ]);
+    assert_eq!(fixture::listing(&folder), expected);
     let executed = sandbox.execute(&binary, &folder);
-    assert_eq!(executed.code, 81);
+    assert_eq!(executed.code, 87);
 }

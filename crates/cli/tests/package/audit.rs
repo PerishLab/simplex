@@ -1,20 +1,10 @@
 use crate::archive;
+use crate::fixture;
 use crate::harness::{Client, Sandbox};
 use crate::server::Server;
 
 fn manifest(version: &str) -> String {
-    format!(
-        "\
-schema = \"simplex.package/v1\"
-
-[library]
-scope = \"perish\"
-name = \"gate\"
-version = \"{version}\"
-channel = \"stable\"
-entry = \"gate.sx\"
-"
-    )
+    fixture::manifest("gate", version, "stable", "")
 }
 
 fn baseline(bias: u64) -> String {

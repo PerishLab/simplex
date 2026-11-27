@@ -1,5 +1,7 @@
 use crate::Fault;
+use sha2::{Digest, Sha256};
 use std::fmt;
+use std::fmt::Write;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Version {
@@ -50,7 +52,7 @@ impl Coordinate {
         if !word(scope) {
             return Err(Fault::Coordinate(format!("invalid scope: {scope}")));
         }
-        if !word(name) {
+        if !self::name(name) {
             return Err(Fault::Coordinate(format!("invalid name: {name}")));
         }
         if !word(channel) {
@@ -85,6 +87,10 @@ impl Coordinate {
         Self::new(scope, name, version, channel)
     }
 
+    pub fn leaf(&self) -> &str {
+        self.name.rsplit('.').next().unwrap_or(&self.name)
+    }
+
     pub fn prefix(&self) -> String {
         format!(
             "{}/{}/{}/{}",
@@ -92,34 +98,44 @@ impl Coordinate {
         )
     }
 
+    pub fn hash(&self) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(b"simplex.dylib/v1\0");
+        hasher.update(self.prefix().as_bytes());
+        let sum = hasher.finalize();
+        let mut out = String::with_capacity(16);
+        for byte in &sum[..8] {
+            let _ = write!(out, "{byte:02x}");
+        }
+        out
+    }
+
     pub fn namespace(&self) -> String {
-        format!(
-            "{}${}${}_{}_{}${}",
-            self.scope,
-            self.name,
-            self.version.major,
-            self.version.minor,
-            self.version.patch,
-            self.channel
-        )
+        self.hash()
     }
 
     pub fn stem(&self) -> String {
-        format!(
-            "sx_{}_{}_{}_{}_{}_{}",
-            self.scope,
-            self.name,
-            self.version.major,
-            self.version.minor,
-            self.version.patch,
-            self.channel
-        )
+        self.hash()
     }
 }
 
 impl fmt::Display for Coordinate {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(out, "{}", self.prefix())
+    }
+}
+
+pub fn name(text: &str) -> bool {
+    let mut parts = text.split('.');
+    let Some(first) = parts.next() else {
+        return false;
+    };
+    if !word(first) {
+        return false;
+    }
+    match parts.next() {
+        None => true,
+        Some(second) => word(second) && parts.next().is_none(),
     }
 }
 

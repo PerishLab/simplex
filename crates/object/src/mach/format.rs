@@ -15,12 +15,12 @@ pub fn normalize(library: &str) -> String {
     if library.ends_with(".dylib") {
         return format!("@executable_path/{library}");
     }
-    format!("@executable_path/lib{library}.dylib")
+    format!("@executable_path/{library}.dylib")
 }
 
 pub fn identity(name: &str) -> String {
     if name.is_empty() {
-        return "@executable_path/libmodule.dylib".to_owned();
+        return "@executable_path/module.dylib".to_owned();
     }
     if name.starts_with('@') || name.starts_with('/') {
         return name.to_owned();
@@ -28,7 +28,7 @@ pub fn identity(name: &str) -> String {
     if name.ends_with(".dylib") {
         return format!("@executable_path/{name}");
     }
-    format!("@executable_path/lib{name}.dylib")
+    format!("@executable_path/{name}.dylib")
 }
 
 pub struct Segment {

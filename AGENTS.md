@@ -9,11 +9,14 @@ this file keeps repository-specific charter and constraints without copying it.
 
 `simplex` is a **candidate bailiwick** with completed 9-domain cold-start
 specification, `Cycle 2` (`Substrate`) target-neutral zero-stack `Fiber<T>` +
-tri-OS native backends, and `Cycle 3` (`Package`, `Project #13 · Simplex · Native`):
-the 7-crate compiler and package system (`Coordinate` 4-tuple library identity,
-lockfile-free `simplex.package/v1` & `simplex.workspace/v1` manifests,
+tri-OS native backends, `Cycle 3` (`Package`) Create-Only S3 & 3-tier seal,
+and `Cycle 4` (`Lemma`, `Project #13 · Simplex · Native`): the 7-crate compiler
+and Lemma system (`Coordinate` two-level `scope/package[.subpackage]` identity,
+lockfile-free `simplex.lemma/v1` `[lemma]` & `simplex.workspace/v1` `lemmas/*`
+manifests, `{ workspace = "pkg.sub" }`, directory-wide `surface::extract`,
 mechanical `simplex.seal/v1` 3-tier `x.y.z` API/ABI gate, Create-Only S3 SigV4
-distribution, cross-package `import` & 4-tuple `dylib` compilation, and
+distribution, cross-Lemma `import alias.mod` & `<16hex>.{so,dll,dylib}` zero-`lib`-prefix
+compilation with hash/output collision guards, and
 `simplex {check, format, build, seal, publish}`) are live and hardware-verified
 across Linux, Windows 11, and Apple Silicon (`M4`); a released Depot `SKILL.md`
 promise remains `unknown` until formal release.
@@ -40,20 +43,21 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
 - `crates/lib` (`simplex`): Zero-backtracking lexer, parser, canonical
   formatter, local semantic/borrow/`comptime`/`dylib`/`meta` checker and 9-domain
   golden verifier (`38 pass, 140 reject`).
-- `crates/package` (`simplex-package`, depends on `simplex`): 4-tuple
-  `Coordinate` / `Version` (`model`), `simplex.package/v1` &
+- `crates/package` (`simplex-package`, depends on `simplex`): Two-level
+  `Coordinate` / `Version` (`model`), `simplex.lemma/v1` &
   `simplex.workspace/v1` (`manifest`), deterministic UStar `source.tar`
-  (`archive`), canonical `pub` API/ABI `Contract` (`surface`), `simplex.seal/v1`
-  (`seal`), 3-tier `x.y.z` auditor (`audit`), pure-Rust `AWS SigV4` (`signing`),
-  and Create-Only `If-None-Match: "*"` S3 + SHA-256 local cache (`store`).
+  (`archive`), directory-wide canonical `pub` API/ABI `Contract` (`surface`),
+  `simplex.seal/v1` (`seal`), 3-tier `x.y.z` auditor (`audit`), pure-Rust
+  `AWS SigV4` (`signing`), and Create-Only `If-None-Match: "*"` S3 + SHA-256
+  local cache (`store`).
 - `crates/ir` (`simplex-ir`, zero dependencies): Target-neutral Block-Arg SSA
   `Module`, $O(N)$ `verify`, `simplify`, and zero-stack `Fiber<T>` continuation
   frame lowerer (`prepare`).
 - `crates/hir` (`simplex-hir`, depends on `simplex`, `simplex-ir`,
-  `simplex-package`): Standalone and cross-package (`Linked`, `Graph`, `Plan`,
-  `build`) monomorphized Typed HIR lowerer, 4-tuple namespace/symbol isolation,
-  `sx_<scope>_<name>_<x>_<y>_<z>_<channel>` dynamic library planner, and
-  target-neutral `LIR` bridge (`translate`, `bridge`).
+  `simplex-package`): Standalone and cross-Lemma (`Linked`, `Graph`, `Plan`,
+  `build`) monomorphized Typed HIR lowerer, `<16hex>` namespace/symbol
+  isolation, `<16hex>` `Fault::Collision` guard, `<16hex>` dynamic library
+  planner, and target-neutral `LIR` bridge (`translate`, `bridge`).
 - `crates/object` (`simplex-object`, zero dependencies): Pure-Rust unified
   `ELF64` / `PE32+` / SHA-256 signed `Mach-O 64` `Artifact` emitter (`emit`).
 - `crates/target` (`simplex-target`, depends on `simplex-ir`, `simplex-object`):
@@ -61,7 +65,8 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
   (`intel`, `linux` SysV AMD64, `windows` Microsoft x64) and `aarch64` (`arm`,
   `apple` AAPCS64) native machine-code backends.
 - `crates/cli` (`simplex-cli`): `simplex {check, format, build, seal, publish}`
-  supporting standalone and package/workspace builds, S3 Create-Only publishing,
+  supporting standalone and Lemma/workspace builds, output path collision guard,
+  zero-prefix `<stem>.{so,dll,dylib}` emission, S3 Create-Only publishing,
   `unlink`-before-write atomic output replacement, and end-to-end S3 + tri-OS
   `SIMPLEX_REMOTE` real-hardware black-box trials (`crates/cli/tests/`).
 
@@ -73,10 +78,10 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
   semantic rule that refuses an invalid `.sx` specimen.
 - **Suite**: One orthogonal domain directory (`cases/<domain>`) pairing pure
   `pass/*.sx` and `reject/*.sx` specimens with a `suite.toml` refusal manifest.
-- **Coordinate**: One mandatory 4-tuple library identity `(scope, name, x.y.z, channel)`
-  addressing immutable `<scope>/<name>/<x.y.z>/<channel>/{source.tar, seal.toml}` objects,
-  `{scope}${name}${major}_{minor}_{patch}${channel}` HIR namespaces, and
-  `sx_{scope}_{name}_{major}_{minor}_{patch}_{channel}` dynamic libraries.
+- **Coordinate**: One mandatory 4-tuple Lemma identity `(scope, name, x.y.z, channel)`
+  with 1- or 2-level `name` (`package` or `package.subpackage`) addressing
+  immutable `<scope>/<name>/<x.y.z>/<channel>/{source.tar, seal.toml}` objects,
+  `<16hex>` HIR namespaces, and `<16hex>.{so,dll,dylib}` dynamic libraries.
 - **Module**: One target-neutral `simplex-ir` Block-Arg SSA compilation unit
   lowered to pure synchronous routines after `prepare`.
 - **Artifact**: One unified `simplex-object` code, data, symbol, import and
@@ -91,12 +96,14 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
   listed with its exact `Code` in that domain's `suite.toml`, and unlisted or
   missing files fail closed.
 - **Lockfile-free Create-Only S3 & mechanical `x.y.z` law**: `simplex.toml`
-  admits only complete 4-tuple coordinates or `{ workspace = "*" }` (mechanically
-  rewritten and S3-verified on `publish`), forbids `simplex.lock`, gates `x`
-  (`--epoch`), `y` (breaking `pub` API/ABI) and `z` (compatible) transitions via
-  `simplex.seal/v1`, writes S3 objects strictly with `If-None-Match: "*"`, and
-  fetches dependencies with SHA-256 verification and zero fallback.
-- **Frozen tri-OS binary & zero-stack `Fiber<T>` contract**: `simplex build` emits zero-SDK `linux-x86_64` (`ELF64` `.so`), `windows-x86_64` (`PE32+` `.exe`/`.dll`), and `darwin-aarch64` (`16 KiB`-aligned signed `Mach-O 64` `lib*.dylib` with `LC_UUID` and `LC_DYLD_CHAINED_FIXUPS`), passing byte-identical `N1–N4`, cross-package S3, and `dylib` hot-swap black-box trials across Linux, Windows 11, and Apple Silicon.
+  (`simplex.lemma/v1`, `[lemma]`, zero `entry` field) admits only complete
+  4-tuple coordinates, `{ workspace = "*" }`, or `{ workspace = "pkg.sub" }`
+  (mechanically rewritten and S3-verified on `publish`), forbids `simplex.lock`,
+  gates `x` (`--epoch`), `y` (breaking `pub` API/ABI) and `z` (compatible)
+  transitions via `simplex.seal/v1`, writes S3 objects strictly with
+  `If-None-Match: "*"`, and fetches dependencies with SHA-256 verification and
+  zero fallback.
+- **Frozen tri-OS binary & zero-stack `Fiber<T>` contract**: `simplex build` emits zero-SDK `linux-x86_64` (`ELF64` `<stem>.so`), `windows-x86_64` (`PE32+` `<stem>.exe`/`<stem>.dll`), and `darwin-aarch64` (`16 KiB`-aligned signed `Mach-O 64` `<stem>.dylib` with `LC_UUID` and `LC_DYLD_CHAINED_FIXUPS`), passing byte-identical `N1–N4`, cross-Lemma S3, and `dylib` hot-swap black-box trials across Linux, Windows 11, and Apple Silicon.
 - **Orthogonal systems-language scope**: Simplex benchmarks directly against
   C++, Rust and Zig as a systems-grade general-purpose programming language; it
   does not solve markup, layout, styling or other specialized domain-specific

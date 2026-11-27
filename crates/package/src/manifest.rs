@@ -10,19 +10,18 @@ use std::fs;
 use std::path::Path;
 use toml::{Table, Value};
 
-pub const PACKAGE: &str = "simplex.package/v1";
+pub const LEMMA: &str = "simplex.lemma/v1";
 pub const WORKSPACE: &str = "simplex.workspace/v1";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Dependency {
     Exact(Coordinate),
-    Workspace,
+    Workspace(Option<String>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Manifest {
-    pub library: Coordinate,
-    pub entry: String,
+    pub lemma: Coordinate,
     pub dependencies: BTreeMap<String, Dependency>,
 }
 
@@ -32,28 +31,27 @@ impl Manifest {
             .parse::<Table>()
             .map_err(|err| Fault::Manifest(err.to_string()))?;
         for key in root.keys() {
-            if !matches!(key.as_str(), "schema" | "library" | "dependencies") {
+            if !matches!(key.as_str(), "schema" | "lemma" | "dependencies") {
                 return Err(Fault::Manifest(format!("unknown manifest field: {key}")));
             }
         }
         let schema = required(&root, "schema")?;
-        if schema != PACKAGE {
+        if schema != LEMMA {
             return Err(Fault::Manifest(format!(
                 "unsupported manifest schema: {schema}"
             )));
         }
-        let Some(Value::Table(table)) = root.get("library") else {
-            return Err(Fault::Manifest("missing [library] table".into()));
+        let Some(Value::Table(table)) = root.get("lemma") else {
+            return Err(Fault::Manifest("missing [lemma] table".into()));
         };
-        let (library, entry) = header(table)?;
+        let lemma = header(table)?;
         let dependencies = match root.get("dependencies") {
             Some(Value::Table(items)) => links(items)?,
             Some(_) => return Err(Fault::Manifest("invalid [dependencies] table".into())),
             None => BTreeMap::new(),
         };
         Ok(Self {
-            library,
-            entry,
+            lemma,
             dependencies,
         })
     }
@@ -68,14 +66,13 @@ impl Manifest {
 
     pub fn render(&self) -> String {
         let mut out = String::new();
-        let _ = writeln!(out, "schema = \"{PACKAGE}\"");
+        let _ = writeln!(out, "schema = \"{LEMMA}\"");
         let _ = writeln!(out);
-        let _ = writeln!(out, "[library]");
-        let _ = writeln!(out, "scope = \"{}\"", self.library.scope);
-        let _ = writeln!(out, "name = \"{}\"", self.library.name);
-        let _ = writeln!(out, "version = \"{}\"", self.library.version);
-        let _ = writeln!(out, "channel = \"{}\"", self.library.channel);
-        let _ = writeln!(out, "entry = \"{}\"", self.entry);
+        let _ = writeln!(out, "[lemma]");
+        let _ = writeln!(out, "scope = \"{}\"", self.lemma.scope);
+        let _ = writeln!(out, "name = \"{}\"", self.lemma.name);
+        let _ = writeln!(out, "version = \"{}\"", self.lemma.version);
+        let _ = writeln!(out, "channel = \"{}\"", self.lemma.channel);
         if !self.dependencies.is_empty() {
             let _ = writeln!(out);
             let _ = writeln!(out, "[dependencies]");
@@ -92,8 +89,7 @@ impl Manifest {
             dependencies.insert(alias.clone(), resolve(alias, item, members)?);
         }
         Ok(Self {
-            library: self.library.clone(),
-            entry: self.entry.clone(),
+            lemma: self.lemma.clone(),
             dependencies,
         })
     }
@@ -106,11 +102,14 @@ fn resolve(
 ) -> Result<Dependency, Fault> {
     match item {
         Dependency::Exact(coordinate) => Ok(Dependency::Exact(coordinate.clone())),
-        Dependency::Workspace => members
-            .get(alias)
-            .cloned()
-            .map(Dependency::Exact)
-            .ok_or_else(|| Fault::Workspace(format!("missing workspace member: {alias}"))),
+        Dependency::Workspace(target) => {
+            let key = target.as_deref().unwrap_or(alias);
+            members
+                .get(key)
+                .cloned()
+                .map(Dependency::Exact)
+                .ok_or_else(|| Fault::Workspace(format!("missing workspace member: {key}")))
+        }
     }
 }
 
@@ -121,13 +120,10 @@ pub(crate) fn forbid(root: &Path) -> Result<(), Fault> {
     Ok(())
 }
 
-fn header(table: &Table) -> Result<(Coordinate, String), Fault> {
+fn header(table: &Table) -> Result<Coordinate, Fault> {
     for key in table.keys() {
-        if !matches!(
-            key.as_str(),
-            "scope" | "name" | "version" | "channel" | "entry"
-        ) {
-            return Err(Fault::Manifest(format!("unknown library field: {key}")));
+        if !matches!(key.as_str(), "scope" | "name" | "version" | "channel") {
+            return Err(Fault::Manifest(format!("unknown lemma field: {key}")));
         }
     }
     let scope = required(table, "scope")?;
@@ -135,36 +131,7 @@ fn header(table: &Table) -> Result<(Coordinate, String), Fault> {
     let raw = required(table, "version")?;
     let channel = required(table, "channel")?;
     let version = Version::parse(raw)?;
-    let coordinate = Coordinate::new(scope, name, version, channel)?;
-    let entry = match table.get("entry") {
-        Some(Value::String(value)) => value.clone(),
-        Some(_) => return Err(Fault::Manifest("library entry must be a string".into())),
-        None => format!("{name}.sx"),
-    };
-    validate(&entry)?;
-    Ok((coordinate, entry))
-}
-
-fn validate(entry: &str) -> Result<(), Fault> {
-    if !entry.ends_with(".sx") || entry.starts_with('/') || entry.contains("..") {
-        return Err(Fault::Manifest(format!("invalid entry path: {entry}")));
-    }
-    if entry
-        .bytes()
-        .any(|byte| matches!(byte, b'\\' | b':' | b'"' | 0..=0x1f))
-    {
-        return Err(Fault::Manifest(format!("invalid entry path: {entry}")));
-    }
-    for part in entry.split('/') {
-        if part.is_empty() || part == "." || part == ".." {
-            return Err(Fault::Manifest(format!("invalid entry path: {entry}")));
-        }
-    }
-    let leaf = entry.rsplit('/').next().unwrap_or("");
-    if leaf.len() <= 3 || matches!(leaf, "mod.sx" | "index.sx" | "lib.sx") {
-        return Err(Fault::Manifest(format!("forbidden entry file: {entry}")));
-    }
-    Ok(())
+    Coordinate::new(scope, name, version, channel)
 }
 
 fn links(items: &Table) -> Result<BTreeMap<String, Dependency>, Fault> {
@@ -192,12 +159,20 @@ fn dependency(alias: &str, spec: &Table) -> Result<Dependency, Fault> {
                 "dependency {alias} mixes workspace with other fields"
             )));
         }
-        if marker.as_str() != Some("*") {
+        let Some(target) = marker.as_str() else {
             return Err(Fault::Manifest(format!(
-                "dependency {alias} workspace must be \"*\""
+                "dependency {alias} workspace must be a string"
+            )));
+        };
+        if target == "*" {
+            return Ok(Dependency::Workspace(None));
+        }
+        if !crate::model::name(target) {
+            return Err(Fault::Manifest(format!(
+                "dependency {alias} invalid workspace target: {target}"
             )));
         }
-        return Ok(Dependency::Workspace);
+        return Ok(Dependency::Workspace(Some(target.to_owned())));
     }
     for key in spec.keys() {
         if !matches!(key.as_str(), "scope" | "name" | "version" | "channel") {
@@ -233,8 +208,11 @@ fn render(out: &mut String, alias: &str, item: &Dependency) {
                 coord.scope, coord.name, coord.version, coord.channel
             );
         }
-        Dependency::Workspace => {
+        Dependency::Workspace(None) => {
             let _ = writeln!(out, "{alias} = {{ workspace = \"*\" }}");
+        }
+        Dependency::Workspace(Some(target)) => {
+            let _ = writeln!(out, "{alias} = {{ workspace = \"{target}\" }}");
         }
     }
 }

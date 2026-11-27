@@ -102,7 +102,7 @@ impl Linker<'_> {
                 continue;
             }
             let library = match &ext.linkage {
-                Linkage::Dynamic(stem) => format!("@executable_path/lib{stem}.dylib"),
+                Linkage::Dynamic(stem) => format!("@executable_path/{stem}.dylib"),
                 _ => String::from("/usr/lib/libSystem.B.dylib"),
             };
             let code = !ext.symbol.starts_with("sx$vt$");
@@ -236,7 +236,7 @@ fn register(symbol: &str, symbols: &[Symbol], imported: &mut Vec<Import>) {
             let stem = parts[1];
             imported.push(Import {
                 name: symbol.to_owned(),
-                library: format!("@executable_path/lib{stem}.dylib"),
+                library: format!("@executable_path/{stem}.dylib"),
                 code: false,
             });
             return;

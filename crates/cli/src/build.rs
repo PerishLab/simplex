@@ -4,7 +4,7 @@ use simplex_package::{Coordinate, Dependency, Manifest, Store, Workspace};
 use simplex_target::Platform;
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 pub struct Request<'a> {
     pub entry: &'a Path,
@@ -69,12 +69,7 @@ fn standalone(request: &Request<'_>, platform: Platform) -> Result<(), String> {
 
 fn package(request: &Request<'_>, platform: Platform, root: &Path) -> Result<(), String> {
     let store = request.context.store()?;
-    let mut manifest = Manifest::load(root).map_err(|error| error.to_string())?;
-    if request.entry.extension().and_then(|part| part.to_str()) == Some("sx")
-        && let Some(file) = request.entry.file_name().and_then(|part| part.to_str())
-    {
-        manifest.entry = file.to_owned();
-    }
+    let manifest = Manifest::load(root).map_err(|error| error.to_string())?;
     let workspace = Workspace::locate(root).map_err(|error| error.to_string())?;
     let loader = Loader {
         store: &store,
@@ -87,14 +82,17 @@ fn package(request: &Request<'_>, platform: Platform, root: &Path) -> Result<(),
         Path::to_path_buf,
     );
     let folder = parent(&path);
-    for (coordinate, mut dynamic) in plan.dynamics {
+    let mut outputs = BTreeMap::new();
+    let mut targets = Vec::with_capacity(plan.dynamics.len());
+    for (coordinate, dynamic) in plan.dynamics {
         let label = coordinate.stem();
-        emit(
-            platform,
-            &label,
-            &mut dynamic,
-            (&folder.join(destination(&label, platform, true)), true),
-        )?;
+        let target = folder.join(destination(&label, platform, true));
+        claim(&mut outputs, &target, coordinate.to_string())?;
+        targets.push((label, target, dynamic));
+    }
+    claim(&mut outputs, &path, graph.root.coordinate.to_string())?;
+    for (label, target, mut dynamic) in targets {
+        emit(platform, &label, &mut dynamic, (&target, true))?;
     }
     let mut main = plan.module;
     emit(platform, &plan.stem, &mut main, (&path, request.shared))
@@ -122,9 +120,8 @@ impl Loader<'_> {
             dependencies.insert(alias.clone(), coordinate);
         }
         Ok(Linked {
-            coordinate: manifest.library.clone(),
+            coordinate: manifest.lemma.clone(),
             root: root.to_path_buf(),
-            entry: manifest.entry.clone(),
             dependencies,
         })
     }
@@ -136,35 +133,35 @@ impl Loader<'_> {
         packages: &mut BTreeMap<Coordinate, Linked>,
     ) -> Result<Coordinate, String> {
         match dependency {
-            Dependency::Workspace => self.member(alias, packages),
+            Dependency::Workspace(target) => {
+                let name = target.as_deref().unwrap_or(alias);
+                self.member(name, packages)
+            }
             Dependency::Exact(coordinate) => self.external(coordinate, packages),
         }
     }
 
     fn member(
         &self,
-        alias: &str,
+        name: &str,
         packages: &mut BTreeMap<Coordinate, Linked>,
     ) -> Result<Coordinate, String> {
         let Some(workspace) = self.workspace else {
-            return Err(format!("missing workspace for dependency: {alias}"));
+            return Err(format!("missing workspace for dependency: {name}"));
         };
         let found = workspace
             .members
-            .get(alias)
+            .get(name)
             .or_else(|| {
                 workspace
                     .members
                     .values()
-                    .find(|(_, item)| item.library.name == alias)
+                    .find(|(_, item)| item.lemma.name == name)
             })
-            .ok_or_else(|| format!("unknown workspace member: {alias}"))?;
-        let coordinate = found.1.library.clone();
+            .ok_or_else(|| format!("unknown workspace member: {name}"))?;
+        let coordinate = found.1.lemma.clone();
         if !packages.contains_key(&coordinate) {
-            packages.insert(
-                coordinate.clone(),
-                placeholder(&coordinate, &found.0, &found.1),
-            );
+            packages.insert(coordinate.clone(), placeholder(&coordinate, &found.0));
             let node = self.linked(&found.0, &found.1, packages)?;
             packages.insert(coordinate.clone(), node);
         }
@@ -182,13 +179,10 @@ impl Loader<'_> {
                 .fetch(coordinate)
                 .map_err(|error| error.to_string())?;
             let manifest = Manifest::load(&cached.root).map_err(|error| error.to_string())?;
-            if manifest.library != *coordinate {
+            if manifest.lemma != *coordinate {
                 return Err("cached manifest coordinate mismatch".into());
             }
-            packages.insert(
-                coordinate.clone(),
-                placeholder(coordinate, &cached.root, &manifest),
-            );
+            packages.insert(coordinate.clone(), placeholder(coordinate, &cached.root));
             let node = self.linked(&cached.root, &manifest, packages)?;
             packages.insert(coordinate.clone(), node);
         }
@@ -196,12 +190,51 @@ impl Loader<'_> {
     }
 }
 
-fn placeholder(coordinate: &Coordinate, root: &Path, manifest: &Manifest) -> Linked {
+fn placeholder(coordinate: &Coordinate, root: &Path) -> Linked {
     Linked {
         coordinate: coordinate.clone(),
         root: root.to_path_buf(),
-        entry: manifest.entry.clone(),
         dependencies: BTreeMap::new(),
+    }
+}
+
+fn claim(
+    outputs: &mut BTreeMap<PathBuf, String>,
+    path: &Path,
+    owner: String,
+) -> Result<(), String> {
+    let key = normalize(path);
+    if let Some(existing) = outputs.get(&key) {
+        return Err(format!(
+            "artifact path collision: {} ({existing} vs {owner})",
+            path.display()
+        ));
+    }
+    outputs.insert(key, owner);
+    Ok(())
+}
+
+fn normalize(path: &Path) -> PathBuf {
+    let mut parts = Vec::new();
+    for part in path.components() {
+        match part {
+            Component::CurDir => {}
+            Component::ParentDir => step(&mut parts),
+            _ => parts.push(part),
+        }
+    }
+    if parts.is_empty() {
+        PathBuf::from(".")
+    } else {
+        parts.into_iter().collect()
+    }
+}
+
+fn step<'a>(parts: &mut Vec<Component<'a>>) {
+    if matches!(parts.last(), Some(Component::Normal(_))) {
+        parts.pop();
+    } else {
+        parts.push(Component::ParentDir);
     }
 }
 
@@ -235,9 +268,9 @@ fn stem(entry: &Path) -> String {
 
 pub fn destination(stem: &str, platform: Platform, shared: bool) -> PathBuf {
     match (platform, shared) {
-        (Platform::Linux, true) => PathBuf::from(format!("lib{stem}.so")),
+        (Platform::Linux, true) => PathBuf::from(format!("{stem}.so")),
         (Platform::Windows, true) => PathBuf::from(format!("{stem}.dll")),
-        (Platform::Apple, true) => PathBuf::from(format!("lib{stem}.dylib")),
+        (Platform::Apple, true) => PathBuf::from(format!("{stem}.dylib")),
         (Platform::Windows, false) => PathBuf::from(format!("{stem}.exe")),
         (Platform::Linux | Platform::Apple, false) => PathBuf::from(stem),
     }

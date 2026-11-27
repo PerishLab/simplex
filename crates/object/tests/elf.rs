@@ -176,7 +176,7 @@ fn dynamic() {
         },
         Import {
             name: "table".into(),
-            library: "libcodec.so".into(),
+            library: "codec.so".into(),
             code: false,
         },
     ];
@@ -210,7 +210,7 @@ fn dynamic() {
         .iter()
         .map(|&off| reader.text(strings, off as usize))
         .collect();
-    assert_eq!(needed, vec!["libc.so.6", "libcodec.so"]);
+    assert_eq!(needed, vec!["libc.so.6", "codec.so"]);
     assert_eq!(reader.text(strings, tags[&29][0] as usize), "$ORIGIN");
     let call = reader.signed(0x1001);
     let stub = (0x1005i64 + i64::from(call)) as usize;
