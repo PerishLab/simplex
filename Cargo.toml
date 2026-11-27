@@ -1,13 +1,10 @@
 [workspace]
 members = [
     "crates/cli",
-    "crates/elf",
-    "crates/emit",
     "crates/hir",
     "crates/ir",
     "crates/lib",
     "crates/object",
-    "crates/runtime",
     "crates/target",
 ]
 resolver = "3"

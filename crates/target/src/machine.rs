@@ -20,3 +20,32 @@ pub enum Location {
     Float(u8),
     Spill(i32),
 }
+
+pub fn stretch(spans: &mut [Span], loops: &[(u32, u32)], calls: &[u32]) {
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for &(header, latch) in loops {
+            changed |= extend(spans, header, latch);
+        }
+    }
+    for span in spans.iter_mut() {
+        if calls
+            .iter()
+            .any(|&point| span.start < point && span.end > point)
+        {
+            span.across = true;
+        }
+    }
+}
+
+fn extend(spans: &mut [Span], header: u32, latch: u32) -> bool {
+    let mut updated = false;
+    for span in spans.iter_mut() {
+        if span.start < header && span.end >= header && span.end < latch {
+            span.end = latch;
+            updated = true;
+        }
+    }
+    updated
+}
