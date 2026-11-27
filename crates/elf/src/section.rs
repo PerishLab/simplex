@@ -146,7 +146,7 @@ fn metadata(plan: &Plan, survey: &Survey, bundle: &Bundle, out: &mut Buffer) {
         out.record(&Record {
             offset: slot,
             symbol: (1 + shifted + import) as u32,
-            kind: format::SLOT,
+            code: format::SLOT,
             addend: 0,
         });
     }

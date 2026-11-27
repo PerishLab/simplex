@@ -80,11 +80,11 @@ accumulate.
   release and parameter-bound borrow returns.
 - **Native `async` and linear `Fiber<T>` concurrency**: Asynchronous functions
   and `interface` methods are first-class values (`async (...) -> T`) producing
-  uniform stackful `Fiber<T>` handles without `Pin<Box<dyn Future>>` type
-  erasure or special concurrency block syntax. Fibers and `List<Fiber<T>>`
-  batches compose via postfix `.await`, `.all().await` and cancellation-safe
-  `.race().await`, with compile-time linear settlement (forbidding detached
-  fibers) and NLL borrow tracking across suspension points.
+  uniform address-stable `Fiber<T>` handles without `Pin<Box<dyn Future>>` type
+  erasure, per-fiber `64 KiB` stacks or special concurrency block syntax. Fibers
+  and `List<Fiber<T>>` batches compose via postfix `.await`, `.all().await` and
+  cancellation-safe `.race().await`, with compile-time linear settlement
+  (forbidding detached fibers) and NLL borrow tracking across suspension points.
 
 ### 4. Metaprogramming, compilation, linking and verification
 
@@ -113,25 +113,53 @@ accumulate.
   millisecond incremental builds so black-box integration trials run at inner-loop
   speed.
 
-## `linux-x86_64` binary ABI contract
+## Target-neutral substrate and tri-OS binary ABI contract
 
-1. **Calling convention (System V AMD64)**: Up to six integer/pointer arguments
-   pass in `rdi, rsi, rdx, rcx, r8, r9`; two-word values up to `16 B` (including
-   slices `&[T] = (ptr, len)` and trait fat pointers `&Interface = (data_ptr,
-   vtable_ptr)`) pass in consecutive register pairs and return in `rax + rdx`;
-   aggregates larger than `16 B` use a hidden first-argument `sret` stack slot
-   pointer.
-2. **Deterministic `dylib` mangling**: Exported symbols use plain deterministic
-   names `sx$<ns>$<module>$<name>` and vtables use
-   `sx$vt$<ns>$<module>$<Type>$<Interface>`.
-3. **Dual-mode ELF64 emission**: Programs without `dylib` or `extern "c"`
-   dependencies emit standalone static `ET_EXEC` binaries with zero dynamic
-   interpreter; programs importing `dylib` or `extern "c"` symbols emit standard
-   `PT_INTERP` (`/lib64/ld-linux-x86-64.so.2`) dynamic segments, and `--dylib`
-   emits `ET_DYN` `.so` shared objects.
-4. **Stackful `Fiber<T>` frame**: Each spawned fiber owns an isolated `64 KiB`
-   stack above a `4 KiB` `PROT_NONE` guard page; cooperative context switches
-   save and restore only `rbx, rbp, r12..r15, rsp, rip`.
+1. **Target-neutral compilation pipeline (`HIR -> LIR -> Target -> Object`)**:
+   `simplex-hir` lowers monomorphized `.sx` modules into target-isomorphic
+   Block-Arg SSA (`simplex-ir`) preserving aggregate byte layouts, hardware
+   memory ordering primitives and abstract linkages (`System`, `Dynamic`);
+   `simplex-ir::prepare` lowers `async` functions and `Fiber<T>` operations into
+   synchronous state-machine routines; `simplex-target` runs table-driven
+   linear-scan register allocation and native instruction encoding; and
+   `simplex-object` emits native executables and shared libraries without LLVM,
+   external linkers or platform SDKs, unlinking any prior output path before
+   writing so OS vnode code-signing caches never observe mutated pages.
+2. **Zero-stack address-stable `Fiber<T>` continuation frame**: Each spawned
+   fiber allocates a compact heap continuation frame prefixed by a uniform
+   cross-`dylib` `FiberHeader` (`step`, `cancel`, `child`, `state`, `size`,
+   inline `result` storage and suspension-live locals) stepped directly on the
+   host thread stack with zero assembly context-switch stubs; `.all().await`
+   polls round-robin and `.race().await` cancels uncompleted losers in reverse
+   declaration order.
+3. **Deterministic `dylib` mangling**: Exported symbols use deterministic names
+   `sx$<ns>$<module>$<name>` and interface dispatch tables use
+   `sx$vt$<ns>$<module>$<Type>$<Interface>` (prefixed with `_` in Mach-O symbol
+   tables on Apple Silicon).
+4. **Tri-OS calling conventions and binary containers**:
+   - **`linux-x86_64` (`ELF64` + System V AMD64)**: Up to six GP arguments in
+     `rdi, rsi, rdx, rcx, r8, r9` and eight FP arguments in `xmm0..7`; `9..=16 B`
+     pairs and aggregates pass in consecutive registers and return in `rax + rdx`;
+     aggregates above `16 B` use a hidden `rdi` `sret` pointer; emits standalone
+     static `ET_EXEC` when dependency-free, dynamic `PT_INTERP` PIE when linking
+     `libc.so.6` or `lib<stem>.so` (`DT_RUNPATH=$ORIGIN`), and `ET_DYN`
+     `lib<stem>.so` shared libraries.
+   - **`windows-x86_64` (`PE32+` + Microsoft x64)**: Up to four arguments in
+     `rcx/xmm0, rdx/xmm1, r8/xmm2, r9/xmm3` with mandatory `32 B` caller shadow
+     space and `16 B` stack alignment before every call; `1, 2, 4, 8 B` values
+     pass in registers while pairs (`16 B`) and all other aggregates pass via
+     caller stack-copy pointers and return via hidden `rcx` `sret` pointer;
+     links `KERNEL32.dll` (`ExitProcess`), `ucrtbase.dll` and `<stem>.dll` with
+     ASCII-sorted `.edata` exports and `.reloc` `DIR64` base relocations.
+   - **`darwin-aarch64` (`Mach-O 64` + Apple AAPCS64)**: Up to eight GP
+     arguments in `x0..x7` and eight FP arguments in `d0..d7`; `9..=16 B` pairs
+     and aggregates pass in consecutive register pairs and return in `x0 + x1`;
+     aggregates above `16 B` return via dedicated `x8` indirect result register
+     and pass via caller stack-copy pointers; enforces `16 KiB` Mach-O segment
+     alignment paired with `4 KiB` `ADRP` page addressing, `LC_UUID`,
+     `LC_DYLD_CHAINED_FIXUPS`, `LC_DYLD_EXPORTS_TRIE`
+     (`@executable_path/lib<stem>.dylib`), `/usr/lib/libSystem.B.dylib` and
+     built-in SHA-256 `CodeDirectory` (`LC_CODE_SIGNATURE`).
 
 ## Cold-start method
 

@@ -56,7 +56,7 @@ impl<'a> Writer<'a> {
                     relative.push(Record {
                         offset: slot,
                         symbol: 0,
-                        kind: format::RELATIVE,
+                        code: format::RELATIVE,
                         addend: value as i64,
                     });
                 }
@@ -65,7 +65,7 @@ impl<'a> Writer<'a> {
                     external.push(Record {
                         offset: slot,
                         symbol: (1 + shifted + import) as u32,
-                        kind: format::GLOBAL,
+                        code: format::GLOBAL,
                         addend: 0,
                     });
                 }
@@ -128,7 +128,7 @@ impl<'a> Writer<'a> {
                 out.relative.push(Record {
                     offset: map.data + offset,
                     symbol: 0,
-                    kind: format::RELATIVE,
+                    code: format::RELATIVE,
                     addend: value,
                 });
             }
@@ -141,7 +141,7 @@ impl<'a> Writer<'a> {
                 out.external.push(Record {
                     offset: map.data + offset,
                     symbol: (1 + self.shifted() + import) as u32,
-                    kind: format::DIRECT,
+                    code: format::DIRECT,
                     addend,
                 });
             }
