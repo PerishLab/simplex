@@ -7,19 +7,10 @@ this file keeps repository-specific charter and constraints without copying it.
 
 ## Standing
 
-`simplex` is a **candidate bailiwick** transitioning from its completed
-9-domain cold-start specification into `linux-x86_64` native non-LLVM compiler
-implementation (`Project #13 · Simplex · Native`): the explored question,
-non-goals, native records, exit condition, governed verification harness,
-6-crate cross-layer ABI spine, `N0–N4` zero-LLVM `linux-x86_64` native
-compilation (`Standalone`/`Dynamic`/`Shared` `.so` `ELF64`, `extern "c"`,
-cross-`.so` `&Interface` fat-pointer dispatch and stackful `Fiber<T>`
-`.await`/`.all()`/`.race()` deterministic cancellation runtime) is live, and
-Cycle 2 (`Substrate`) `S0 · Spine` target-neutral contract crates
-(`crates/{ir,object,target}`) are now anchored in the workspace alongside the
-active `Cycle 1` `linux-x86_64` pipeline while `S1–S5` implementation is
-in-flight; a released Depot `SKILL.md` promise remains `unknown` until formal
-release.
+`simplex` is a **candidate bailiwick** advancing from its completed 9-domain
+cold-start specification and `Cycle 1` `linux-x86_64` native compiler into
+`Cycle 2` (`Substrate`, `Project #13 · Simplex · Native`): target-neutral Block-Arg SSA (`simplex-ir`), linear structural/dominator verification, zero-stack `Fiber<T>` continuation frame lowering (`prepare`), and `simplex-hir` `translate`/`bridge` lowering (`S1`) are live alongside the `Cycle 1` `linux-x86_64` pipeline while `S2–S5` proceed; a
+released Depot `SKILL.md` promise remains `unknown` until formal release.
 
 ## Explored question
 
@@ -34,10 +25,7 @@ discipline against host-language escape hatches.
 
 ## Responsibility
 
-Simplex owns the `.sx` general-purpose language specification, golden
-`pass / reject` specimen suites (`cases/*`), grammar, type and borrow checker,
-compile-time evaluation and typed decorators (`comptime` and `meta`), non-LLVM
-native code generator, ELF64/`.so` linker and stackful `Fiber` runtime.
+Simplex owns the `.sx` general-purpose language specification, golden `pass / reject` specimen suites (`cases/*`), grammar, type and borrow checker, `comptime`/`meta` evaluator, target-neutral `HIR -> LIR` lowering, zero-stack `Fiber<T>` continuation transform, and non-LLVM native code generation.
 
 ## Workspace topology
 
@@ -46,31 +34,21 @@ The Rust workspace forms a strict zero-cycle DAG across nine crates during the C
 - `crates/lib` (`simplex`): Zero-backtracking lexer, parser, canonical
   formatter, local semantic/borrow/`comptime`/`dylib`/`meta` checker and 9-domain
   golden verifier (`38 pass, 140 reject`).
-- `crates/hir` (`simplex-hir`, depends on `simplex`): Topological multi-module
-  `import`/`dylib`/`extern "c"` loader, generic/`comptime`/`@derive`/decorator/`@caller`/`embed`
-  monomorphized Typed HIR lowerer, deterministic scope `Drop` synthesis, `sx$`
-  symbol mangling and System V AMD64 byte layout/passing computation
-  (`Footprint`, `Passing`).
-- `crates/elf` (`simplex-elf`, zero dependencies): Pure-Rust `linux-x86_64`
-  ELF64 image emitter (`Standalone` static `ET_EXEC`, `Dynamic`
-  `PT_INTERP` PIE and `Shared` `ET_DYN` `.so` shared objects) and relocation patcher.
-- `crates/runtime` (`simplex-runtime`, zero dependencies): `linux-x86_64`
-  syscall numbers, `64 KiB + 4 KiB PROT_NONE` `Fiber` stack constants,
-  callee-saved `Context` frame (`rbx, rbp, r12..r15, rsp, rip`) and self-contained PIC `sx$rt$*` machine-code stubs (`start`, `exit`,
-  `write`, `spawn`, `yield`, `await`, `all`, `race`, `cancel`).
-- `crates/emit` (`simplex-emit`, depends on `simplex-hir`, `simplex-elf`,
-  `simplex-runtime`): Linear IR, loop-aware linear-scan register allocator
-  (`rdi..r9` args, `rax+rdx` pair returns, `rbx, r12..r15` callee-saved) and
-  `x86_64`/SSE2 native machine-code compiler.
-- `crates/ir` (`simplex-ir`, zero dependencies): Frozen `S0` target-neutral
-  Block-Arg SSA, hardware memory-ordering and `Fiber` lowering contract (`S1`
-  implementation pending).
+- `crates/ir` (`simplex-ir`, zero dependencies): Target-neutral Block-Arg SSA
+  `Module`, single-pass $O(N)$ structural/dominator verifier (`verify`),
+  canonical simplifier (`simplify`), and zero-stack `Fiber<T>` continuation
+  frame lowerer (`prepare`).
+- `crates/hir` (`simplex-hir`, depends on `simplex`, `simplex-ir`): Multi-module
+  monomorphized Typed HIR lowerer (`lower`) and target-neutral `LIR` bridge
+  (`translate`, `bridge`) with reverse-order `Drop` and cancelled-fiber cleanup
+  synthesis.
 - `crates/object` (`simplex-object`, zero dependencies): Frozen `S0` unified
-  `ELF64` / `PE32+` / `Mach-O 64` `Artifact` emission contract (`S2`
-  implementation pending).
+  `ELF64` / `PE32+` / `Mach-O 64` `Artifact` emission contract (`S2` pending).
 - `crates/target` (`simplex-target`, depends on `simplex-ir`, `simplex-object`):
-  Frozen `S0` shared register-allocation and `Linux` / `Windows` / `Apple`
-  backend contract (`S3–S5` implementation pending).
+  Frozen `S0` shared register-allocation and multi-OS backend contract (`S3–S5`
+  pending).
+- `crates/elf`, `crates/runtime`, `crates/emit`: Transitional `Cycle 1`
+  `linux-x86_64` backend crates retained until `S3` CLI cutover.
 - `crates/cli` (`simplex-cli`): `simplex {check, format, build}` binary and
   black-box process execution tests (`crates/cli/tests/`).
 
@@ -82,11 +60,10 @@ The Rust workspace forms a strict zero-cycle DAG across nine crates during the C
   semantic rule that refuses an invalid `.sx` specimen.
 - **Suite**: One orthogonal domain directory (`cases/<domain>`) pairing pure
   `pass/*.sx` and `reject/*.sx` specimens with a `suite.toml` refusal manifest.
-- **Unit**: One monomorphized Typed HIR compilation module carrying exact SysV
-  layouts, `.rodata` assets, vtables and routines.
-- **Plan**: One `linux-x86_64` ELF64 emission specification (`Standalone`,
-  `Dynamic` or `Shared`) pairing `.text`/`.rodata` bytes with symbols and
-  relocations.
+- **Module**: One target-neutral `simplex-ir` Block-Arg SSA compilation unit
+  lowered to pure synchronous routines after `prepare`.
+- **Unit**: One monomorphized Typed HIR module bridging `.sx` semantics into
+  `simplex-ir`.
 
 ## Invariants
 
@@ -96,11 +73,7 @@ The Rust workspace forms a strict zero-cycle DAG across nine crates during the C
   expectation comments; every `reject/*.sx` file on disk must be explicitly
   listed with its exact `Code` in that domain's `suite.toml`, and unlisted or
   missing files fail closed.
-- **Frozen `linux-x86_64` ABI contract**: All backend crates obey System V AMD64
-  register/pair/`sret` passing, `sx$<ns>$<module>$<name>` /
-  `sx$vt$<ns>$<module>$<Type>$<Interface>` symbol names, dual-mode ELF64 output
-  (zero-interpreter standalone when dependency-free; `PT_INTERP` when linking
-  `dylib` or `extern "c"`), and `64 KiB + 4 KiB PROT_NONE` `Fiber` stacks.
+- **Target-neutral LIR & ABI contract**: `simplex-ir` preserves aggregate layouts and abstract `System`/`Dynamic` linkages while `prepare` lowers `async` routines into uniform `FiberHeader` continuation frames (`step`, `cancel`, `child`, `state`, `size`, `result`).
 - **Orthogonal systems-language scope**: Simplex benchmarks directly against
   C++, Rust and Zig as a systems-grade general-purpose programming language; it
   does not solve markup, layout, styling or other specialized domain-specific
@@ -112,7 +85,7 @@ The Rust workspace forms a strict zero-cycle DAG across nine crates during the C
 
 - Solving or absorbing markup, layout, styling or other specialized/future
   domain-specific languages (DSLs).
-- No LLVM or Cranelift backend dependency.
+- No LLVM, Cranelift or external system linker/SDK backend dependency.
 - No tracing garbage collector.
 - No class or struct inheritance hierarchy.
 - No built-in white-box unit-test syntax (`test`, `@test`) or conditional

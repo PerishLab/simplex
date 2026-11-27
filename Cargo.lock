@@ -589,6 +589,7 @@ name = "simplex-hir"
 version = "0.0.0"
 dependencies = [
  "simplex",
+ "simplex-ir",
 ]
 
 [[package]]
