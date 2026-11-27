@@ -1,3 +1,8 @@
+mod digest;
+mod elf;
+mod mach;
+mod portable;
+
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -74,7 +79,7 @@ impl fmt::Display for Fault {
         match self {
             Self::Empty => out.write_str("empty machine code section"),
             Self::Unresolved(symbol) => write!(out, "unresolved symbol: {symbol}"),
-            Self::Invalid(message) => write!(out, "invalid object: {message}"),
+            Self::Invalid(detail) => write!(out, "invalid object: {detail}"),
         }
     }
 }
@@ -82,8 +87,15 @@ impl fmt::Display for Fault {
 impl std::error::Error for Fault {}
 
 pub fn emit(artifact: &Artifact) -> Result<Vec<u8>, Fault> {
-    if artifact.code.is_empty() {
+    if artifact.code.is_empty() && artifact.mode != Mode::Shared {
         return Err(Fault::Empty);
     }
-    Err(Fault::Invalid("unimplemented".to_string()))
+    if artifact.mode != Mode::Shared && artifact.entry as usize >= artifact.code.len() {
+        return Err(Fault::Invalid("entry offset out of bounds".into()));
+    }
+    match artifact.format {
+        Format::Elf => elf::emit(artifact),
+        Format::Portable => portable::emit(artifact),
+        Format::Mach => mach::emit(artifact),
+    }
 }
