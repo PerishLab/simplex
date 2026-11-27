@@ -7,9 +7,14 @@ this file keeps repository-specific charter and constraints without copying it.
 
 ## Standing
 
-`simplex` is a **candidate bailiwick** advancing from its completed 9-domain
-cold-start specification and `Cycle 1` `linux-x86_64` native compiler into
-`Cycle 2` (`Substrate`, `Project #13 · Simplex · Native`): the complete Cycle 2 (`Substrate`) 6-crate target-neutral compiler, zero-stack `Fiber<T>` continuation frame runtime, and zero-SDK native executable + `dylib` backends across `linux-x86_64` (`ELF64`), `windows-x86_64` (`PE32+`), and `darwin-aarch64` (`Mach-O 64` + built-in SHA-256 `CodeDirectory`) are live and hardware-verified across Linux, Windows 11, and Apple Silicon (`M4`); a
+`simplex` is a **candidate bailiwick** advancing from its hardware-verified
+`Cycle 2` (`Substrate`) 6-crate tri-OS compiler into `Cycle 3` (`Package`,
+`Project #13 · Simplex · Native`): the 7-crate workspace DAG and `crates/package`
+(`Coordinate`, `Manifest`, `Workspace`, deterministic `source.tar` `archive`,
+canonical `Contract` `surface`, `simplex.seal/v1`, and 3-tier `x.y.z` `audit`)
+are live alongside `linux-x86_64` (`ELF64`), `windows-x86_64` (`PE32+`), and
+`darwin-aarch64` (`Mach-O 64` + SHA-256 `CodeDirectory`) backends; S3 transport,
+cross-package HIR, and CLI `seal`/`publish` subcommands land in `P2–P4`, and a
 released Depot `SKILL.md` promise remains `unknown` until formal release.
 
 ## Explored question
@@ -25,7 +30,7 @@ discipline against host-language escape hatches.
 
 ## Responsibility
 
-Simplex owns the `.sx` general-purpose language specification, golden `pass / reject` specimen suites (`cases/*`), grammar, type and borrow checker, `comptime`/`meta` evaluator, target-neutral `HIR -> LIR` and zero-stack `Fiber<T>` lowering, non-LLVM `x86_64`/`aarch64` native code generator (`simplex-target`), and zero-linker `ELF64`/`PE32+`/`Mach-O 64` binary emitter (`simplex-object`).
+Simplex owns the `.sx` general-purpose language specification, golden `pass / reject` specimen suites (`cases/*`), grammar, type and borrow checker, `comptime`/`meta` evaluator, 4-tuple library manifest/archive/contract seal and mechanical `x.y.z` audit (`simplex-package`), target-neutral `HIR -> LIR` and zero-stack `Fiber<T>` lowering, non-LLVM `x86_64`/`aarch64` native code generator (`simplex-target`), and zero-linker `ELF64`/`PE32+`/`Mach-O 64` binary emitter (`simplex-object`).
 
 ## Workspace topology
 
@@ -34,10 +39,12 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
 - `crates/lib` (`simplex`): Zero-backtracking lexer, parser, canonical
   formatter, local semantic/borrow/`comptime`/`dylib`/`meta` checker and 9-domain
   golden verifier (`38 pass, 140 reject`).
-- `crates/package` (`simplex-package`, depends on `simplex`): Cycle 3 frozen
-  4-tuple `Coordinate` / `Version` identity and public contract spine for
-  `Manifest`, `Workspace`, `archive`, `Contract`, `Seal`, `audit`, `signing` and
-  `Store`.
+- `crates/package` (`simplex-package`, depends on `simplex`): 4-tuple
+  `Coordinate` / `Version` identity (`model`), lockfile-free `simplex.package/v1`
+  and `simplex.workspace/v1` manifests (`manifest`), deterministic UStar
+  `source.tar` (`archive`), canonical `pub` API/ABI `Contract` extractor
+  (`surface`), `simplex.seal/v1` codec (`seal`), and 3-tier `x.y.z` mechanical
+  auditor (`audit`), plus `P2` stubs (`signing`, `store`).
 - `crates/ir` (`simplex-ir`, zero dependencies): Target-neutral Block-Arg SSA
   `Module`, $O(N)$ `verify`, `simplify`, and zero-stack `Fiber<T>` continuation
   frame lowerer (`prepare`).
@@ -62,6 +69,8 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
   semantic rule that refuses an invalid `.sx` specimen.
 - **Suite**: One orthogonal domain directory (`cases/<domain>`) pairing pure
   `pass/*.sx` and `reject/*.sx` specimens with a `suite.toml` refusal manifest.
+- **Coordinate**: One mandatory 4-tuple library identity `(scope, name, x.y.z, channel)`
+  pairing a deterministic `source.tar` with a mechanical `simplex.seal/v1` API/ABI stamp.
 - **Module**: One target-neutral `simplex-ir` Block-Arg SSA compilation unit
   lowered to pure synchronous routines after `prepare`.
 - **Artifact**: One unified `simplex-object` code, data, symbol, import and
@@ -75,6 +84,11 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
   expectation comments; every `reject/*.sx` file on disk must be explicitly
   listed with its exact `Code` in that domain's `suite.toml`, and unlisted or
   missing files fail closed.
+- **Lockfile-free 4-tuple identity & mechanical `x.y.z` law**: `simplex.toml`
+  admits only complete 4-tuple coordinates or `{ workspace = "*" }`, forbids
+  `simplex.lock`, and gates version transitions via `simplex.seal/v1` (`x`
+  requires `--epoch`, breaking `pub` API/ABI diffs require `y`, compatible edits
+  increment `z`).
 - **Frozen tri-OS binary & zero-stack `Fiber<T>` contract**: `simplex build` emits zero-SDK `linux-x86_64` (`ELF64` `.so`), `windows-x86_64` (`PE32+` `.exe`/`.dll`), and `darwin-aarch64` (`16 KiB`-aligned signed `Mach-O 64` `lib*.dylib` with `LC_UUID` and `LC_DYLD_CHAINED_FIXUPS`), passing byte-identical `N1–N4` and `dylib` hot-swap black-box trials across Linux, Windows 11, and Apple Silicon.
 - **Orthogonal systems-language scope**: Simplex benchmarks directly against
   C++, Rust and Zig as a systems-grade general-purpose programming language; it
@@ -94,6 +108,8 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
   compilation split (`@cfg`) in `.sx` source.
 - No source comments, `if` statements (`only-switch`), implicit type coercions
   or multi-word local identifiers in `.sx` source.
+- No `simplex.lock` lockfile, fuzzy version ranges, prebuilt remote `dylib`
+  artifacts or implicit cross-version/cross-channel fallback.
 - No replacement for domain delivery, norm, black-box trial or distribution
   authorities (`Concord`, `Plumb`, `Ectropy`, `Seatrial`, `Wharf`).
 
