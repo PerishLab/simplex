@@ -1,4 +1,5 @@
 use crate::eval::constant::{Control, Evaluator};
+use crate::flow::fallible::qualified;
 use crate::front::numeric::{Value, binary, digits, narrow};
 use crate::layout::Type;
 use simplex::tree::{Body, Branch, Expression, Outcome, Pattern, Spec};
@@ -53,9 +54,15 @@ impl<'a, 'b> Evaluator<'a, 'b> {
 
     fn member(&mut self, base: &Expression, field: &str) -> Result<Value, Control> {
         if let Expression::Word { text, .. } = base
-            && text.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+            && !self.vars.contains_key(text)
+            && let Some((target, false)) =
+                self.world.imports.get(&(self.stem.clone(), text.clone()))
+            && let Some(val) = self.globals.get(&(target.clone(), field.to_owned()))
         {
-            let kind = self.typing.nominal(&self.stem, text, &[]);
+            return Ok(val.clone());
+        }
+        if let Some((owner, cname)) = qualified(base, &self.stem, &self.world.imports) {
+            let kind = self.typing.nominal(&owner, &cname, &[]);
             let catalog = &self.typing.catalog;
             if let Type::Choice(key) = kind
                 && let Some(tagged) = catalog.choices.get(&key)
@@ -88,6 +95,16 @@ impl<'a, 'b> Evaluator<'a, 'b> {
             ..
         } = callee.as_ref()
         {
+            if let Expression::Word { text, .. } = base.as_ref()
+                && !self.vars.contains_key(text)
+                && let Some((target, false)) = self
+                    .world
+                    .imports
+                    .get(&(self.stem.clone(), text.clone()))
+                    .cloned()
+            {
+                return self.invoke(&target, field, arguments);
+            }
             let target = self.step(base)?;
             let chosen = match mgen.is_empty() {
                 true => generics,
@@ -102,7 +119,10 @@ impl<'a, 'b> Evaluator<'a, 'b> {
             "assert" => Ok(Value::Void),
             "has" => self.tagged(arguments),
             "fields" | "variants" | "size" => Ok(self.reflect(text, generics)),
-            other => self.invoke(other, arguments),
+            other => {
+                let stem = self.stem.clone();
+                self.invoke(&stem, other, arguments)
+            }
         }
     }
 
@@ -148,9 +168,9 @@ impl<'a, 'b> Evaluator<'a, 'b> {
         }
     }
 
-    fn invoke(&mut self, name: &str, args: &[Expression]) -> Result<Value, Control> {
+    fn invoke(&mut self, stem: &str, name: &str, args: &[Expression]) -> Result<Value, Control> {
         let bindings = &self.world.bindings;
-        let Some(binding) = bindings.get(&(self.stem.clone(), name.to_owned())).cloned() else {
+        let Some(binding) = bindings.get(&(stem.to_owned(), name.to_owned())).cloned() else {
             return Ok(Value::Void);
         };
         let Expression::Function { inputs, body, .. } = binding.value else {
@@ -160,14 +180,16 @@ impl<'a, 'b> Evaluator<'a, 'b> {
         for (p, a) in inputs.iter().zip(args) {
             frame.insert(p.name.clone(), self.step(a)?);
         }
-        let saved = std::mem::replace(&mut self.vars, frame);
+        let prevvars = std::mem::replace(&mut self.vars, frame);
+        let prevstem = std::mem::replace(&mut self.stem, stem.to_owned());
         let result = match &body {
             Body::Block(b) => self.items(&b.items),
             Body::Switch(d) => self.dispatch(&d.subject, &d.arms),
             Body::Bucket(p) => self.partition(p.subject.as_ref(), &p.arms),
             Body::Loop(k) => self.repetition(k),
         };
-        self.vars = saved;
+        self.stem = prevstem;
+        self.vars = prevvars;
         Ok(match result {
             Ok(v) | Err(Control::Break(Some(v))) => v,
             Err(_) => Value::Void,

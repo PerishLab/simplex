@@ -101,9 +101,9 @@ impl<'a> Typing<'a> {
                 let (real, resolved) = self.world.unalias(&owner, name);
                 let interfaces = &self.world.interfaces;
                 if let Spec::Named { name: found, .. } = &resolved
-                    && interfaces.contains_key(&(real, found.clone()))
+                    && interfaces.contains_key(&(real.clone(), found.clone()))
                 {
-                    return Type::Trait(found.clone());
+                    return Type::Trait(self.world.traitname(&real, found));
                 }
                 let plain = Spec::Named {
                     module: module.clone(),
@@ -183,7 +183,7 @@ impl<'a> Typing<'a> {
         }
         let interfaces = &self.world.interfaces;
         if interfaces.contains_key(&pair) {
-            return Type::Trait(name.to_owned());
+            return Type::Trait(self.world.traitname(owner, name));
         }
         let key = self.label(owner, name, args);
         self.catalog.records.entry(key.clone()).or_insert(Layout {
@@ -197,7 +197,7 @@ impl<'a> Typing<'a> {
     pub fn label(&self, owner: &str, name: &str, args: &[Type]) -> String {
         let base = match self.world.unique(name) {
             true => name.to_owned(),
-            false => format!("{owner}${name}"),
+            false => format!("{}${name}", self.world.prefix(owner)),
         };
         match args.is_empty() {
             true => base,

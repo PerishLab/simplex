@@ -1,10 +1,12 @@
-use crate::front::loader::{Bundle, Source};
+use crate::front::loader::{Bundle, Meta, Source};
 use crate::front::scan::placeholders;
+use crate::layout::Mangle;
 use simplex::tree::{
     Alias, Binding, Conformance, Contract, Decorator, Enumeration, Expression, External, Item,
     Spec, Statement, Structure,
 };
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 #[derive(Clone, Debug)]
 pub struct Claim {
@@ -19,6 +21,7 @@ pub struct Claim {
 pub struct World {
     pub order: Vec<String>,
     pub files: BTreeMap<String, String>,
+    pub meta: BTreeMap<String, Meta>,
     pub imports: BTreeMap<(String, String), (String, bool)>,
     pub structs: BTreeMap<(String, String), Structure>,
     pub enums: BTreeMap<(String, String), Enumeration>,
@@ -29,24 +32,30 @@ pub struct World {
     pub claims: Vec<Claim>,
     pub copies: BTreeSet<(String, String)>,
     pub callers: BTreeSet<(String, String)>,
-    pub shared: BTreeSet<String>,
+    pub dynamics: Vec<(String, String)>,
     pub programs: BTreeMap<String, Vec<Item>>,
 }
 
 impl World {
     pub fn build(bundle: &Bundle) -> Self {
         let mut world = Self::default();
-        for source in bundle.shared.values() {
-            world.shared.insert(source.stem.clone());
-            world.ingest(source, true);
+        for (key, shared) in &bundle.shared {
+            world.dynamics.push((key.clone(), shared.library.clone()));
+            world.attach(&shared.entry);
+            world.ingest(&shared.entry, true, true);
+            for sup in &shared.support {
+                world.attach(sup);
+                world.ingest(sup, true, false);
+            }
         }
         for source in &bundle.units {
-            world.order.push(source.stem.clone());
-            world.files.insert(source.stem.clone(), source.file.clone());
+            world.order.push(source.key.clone());
+            world.files.insert(source.key.clone(), source.file.clone());
+            world.attach(source);
             world
                 .programs
-                .insert(source.stem.clone(), source.program.items.clone());
-            world.ingest(source, false);
+                .insert(source.key.clone(), source.program.items.clone());
+            world.ingest(source, false, true);
         }
         for stem in world.order.clone() {
             if let Some(items) = world.programs.get(&stem).cloned() {
@@ -56,19 +65,32 @@ impl World {
         world
     }
 
-    fn ingest(&mut self, source: &Source, linked: bool) {
-        for item in &source.program.items {
-            self.register(&source.stem, &item.statement, linked);
+    fn attach(&mut self, source: &Source) {
+        self.meta
+            .entry(source.key.clone())
+            .or_insert_with(|| source.meta.clone());
+        for (alias, target) in &source.imports {
+            self.imports
+                .insert((source.key.clone(), alias.clone()), target.clone());
         }
     }
 
-    fn register(&mut self, stem: &str, stmt: &Statement, linked: bool) {
+    fn ingest(&mut self, source: &Source, linked: bool, values: bool) {
+        for item in &source.program.items {
+            self.register(&source.key, &item.statement, (linked, values));
+        }
+    }
+
+    fn register(&mut self, stem: &str, stmt: &Statement, mode: (bool, bool)) {
+        let (linked, values) = mode;
         let key = |name: &String| (stem.to_owned(), name.clone());
         match stmt {
             Statement::Import(imp) => {
-                let leaf = imp.path.last().cloned().unwrap_or_else(|| imp.name.clone());
-                self.imports
-                    .insert((stem.to_owned(), imp.name.clone()), (leaf, imp.dynamic));
+                let pair = (stem.to_owned(), imp.name.clone());
+                self.imports.entry(pair).or_insert_with(|| {
+                    let leaf = imp.path.last().cloned().unwrap_or_else(|| imp.name.clone());
+                    (leaf, imp.dynamic)
+                });
             }
             Statement::Struct(s) => {
                 self.derives(stem, &s.name, &s.decorators);
@@ -84,7 +106,7 @@ impl World {
             Statement::Alias(a) => {
                 self.aliases.insert(key(&a.name), a.clone());
             }
-            Statement::Bind(b) => self.binding(stem, b, linked),
+            Statement::Bind(b) if values => self.binding(stem, b, linked),
             Statement::Extern(ext) if !linked => {
                 self.externals.insert(key(&ext.name), ext.clone());
             }
@@ -158,6 +180,50 @@ impl World {
             methods,
             derived: false,
         });
+    }
+
+    pub fn coords<'a>(&'a self, fallback: &'a str, key: &'a str) -> (&'a str, &'a str) {
+        match self.meta.get(key) {
+            Some(meta) => (&meta.ns, &meta.module),
+            None => (fallback, key),
+        }
+    }
+
+    pub fn symbol(&self, fallback: &str, key: &str, name: &str) -> String {
+        let (ns, module) = self.coords(fallback, key);
+        Mangle::symbol(ns, module, name)
+    }
+
+    pub fn table(&self, fallback: &str, key: &str, subject: &str, contract: &str) -> String {
+        let (ns, module) = self.coords(fallback, key);
+        Mangle::table(ns, module, subject, contract)
+    }
+
+    pub fn folder<'a>(&'a self, fallback: &'a Path, key: &str) -> (&'a Path, bool) {
+        match self.meta.get(key) {
+            Some(meta) => (&meta.root, meta.strict),
+            None => (fallback, false),
+        }
+    }
+
+    pub fn local(&self, key: &str) -> bool {
+        self.meta.get(key).is_none_or(|meta| meta.local)
+    }
+
+    pub fn prefix(&self, key: &str) -> String {
+        match self.meta.get(key) {
+            Some(meta) if meta.qualified => format!("{}${}", meta.ns, meta.module),
+            Some(meta) => meta.module.clone(),
+            None => key.to_owned(),
+        }
+    }
+
+    pub fn traitname(&self, owner: &str, name: &str) -> String {
+        let count = self.interfaces.keys().filter(|(_, n)| n == name).count();
+        match count <= 1 {
+            true => name.to_owned(),
+            false => format!("{}${name}", self.prefix(owner)),
+        }
     }
 
     pub fn target(&self, stem: &str, alias: &str) -> String {

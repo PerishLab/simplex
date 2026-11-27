@@ -25,11 +25,16 @@ impl<'a> Engine<'a> {
             .cloned()
             .unwrap_or_else(|| (stem.to_owned(), key.to_owned(), Vec::new()));
         let claims = &self.world.claims;
-        if let Some(claim) = claims
+        let found = claims
             .iter()
-            .find(|c| c.subject == raw && c.target.1 == "Drop")
-            .cloned()
-        {
+            .find(|c| c.module == owner && c.subject == raw && c.target.1 == "Drop")
+            .or_else(|| {
+                claims
+                    .iter()
+                    .find(|c| c.subject == raw && c.target.1 == "Drop")
+            })
+            .cloned();
+        if let Some(claim) = found {
             let tsym = self.table(&claim, &args);
             let msym = Mangle::method(&tsym, "drop");
             let borrowed = self
@@ -50,7 +55,8 @@ impl<'a> Engine<'a> {
         if steps.is_empty() {
             return None;
         }
-        let gsym = format!("sx$impl${}${}${key}$Drop$glue", self.ns, owner);
+        let (ns, module) = self.coords(&owner);
+        let gsym = format!("sx$impl${ns}${module}${key}$Drop$glue");
         if self.seen.insert(gsym.clone()) {
             self.routines.push(Routine {
                 symbol: gsym.clone(),

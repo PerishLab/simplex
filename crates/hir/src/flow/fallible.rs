@@ -1,4 +1,4 @@
-use crate::layout::{Mangle, Type};
+use crate::layout::Type;
 use crate::lower::coerce::load;
 use crate::lower::engine::Spec;
 use crate::lower::frame::Frame;
@@ -22,7 +22,7 @@ struct Mapping {
 impl<'b, 'a> Frame<'b, 'a> {
     pub fn lambda(&mut self, node: &syntax::Expression) -> (Expression, Type) {
         let label = self.engine.fresh("fn");
-        let sym = Mangle::symbol(&self.engine.ns, &self.stem, &label);
+        let sym = self.engine.symbol(&self.stem, &label);
         let empty = BTreeMap::new();
         let spec = Spec {
             expr: node,

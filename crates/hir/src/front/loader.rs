@@ -6,34 +6,55 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
+pub struct Meta {
+    pub ns: String,
+    pub module: String,
+    pub root: PathBuf,
+    pub strict: bool,
+    pub local: bool,
+    pub qualified: bool,
+}
+
+#[derive(Clone, Debug)]
 pub struct Source {
-    pub stem: String,
+    pub key: String,
     pub file: String,
+    pub meta: Meta,
+    pub imports: BTreeMap<String, (String, bool)>,
     pub program: Program,
+}
+
+#[derive(Clone, Debug)]
+pub struct Dynamic {
+    pub library: String,
+    pub entry: Source,
+    pub support: Vec<Source>,
 }
 
 #[derive(Clone, Debug)]
 pub struct Bundle {
     pub root: PathBuf,
     pub units: Vec<Source>,
-    pub shared: BTreeMap<String, Source>,
+    pub shared: BTreeMap<String, Dynamic>,
 }
 
 struct Walk {
+    ns: String,
     root: PathBuf,
     active: BTreeSet<PathBuf>,
     seen: BTreeSet<PathBuf>,
     units: Vec<Source>,
-    shared: BTreeMap<String, Source>,
+    shared: BTreeMap<String, Dynamic>,
 }
 
-pub fn load(entry: &Path) -> Result<Bundle, Fault> {
+pub fn load(ns: &str, entry: &Path) -> Result<Bundle, Fault> {
     if !entry.is_file() {
         return Err(Fault::Io(entry.display().to_string()));
     }
     let canonical = fs::canonicalize(entry).unwrap_or_else(|_| entry.to_path_buf());
     let root = anchor(&canonical);
     let mut walk = Walk {
+        ns: ns.to_owned(),
         root: root.clone(),
         active: BTreeSet::new(),
         seen: BTreeSet::new(),
@@ -49,10 +70,11 @@ pub fn load(entry: &Path) -> Result<Bundle, Fault> {
 }
 
 impl Walk {
-    fn visit(&mut self, target: &Path, pos: (usize, usize)) -> Result<(), Fault> {
+    fn visit(&mut self, target: &Path, pos: (usize, usize)) -> Result<String, Fault> {
         let key = fs::canonicalize(target).unwrap_or_else(|_| target.to_path_buf());
+        let stem = stemname(&key);
         if self.seen.contains(&key) {
-            return Ok(());
+            return Ok(stem);
         }
         if !self.active.insert(key.clone()) {
             return Err(Fault::Frontend(Finding {
@@ -61,17 +83,17 @@ impl Walk {
                 column: pos.1,
             }));
         }
-        let parsed = parse(&key)?;
+        let mut parsed = parse(&self.ns, &self.root, &key)?;
         let fallback = self.root.clone();
         let dir = key.parent().unwrap_or(&fallback);
-        self.dependencies(dir, &parsed)?;
+        self.dependencies(dir, &mut parsed)?;
         self.active.remove(&key);
         self.seen.insert(key);
         self.units.push(parsed);
-        Ok(())
+        Ok(stem)
     }
 
-    fn dependencies(&mut self, dir: &Path, current: &Source) -> Result<(), Fault> {
+    fn dependencies(&mut self, dir: &Path, current: &mut Source) -> Result<(), Fault> {
         for item in &current.program.items {
             let Statement::Import(imp) = &item.statement else {
                 continue;
@@ -80,10 +102,22 @@ impl Walk {
             let target = self.locate(dir, imp, pos)?;
             match imp.dynamic {
                 true => {
-                    let parsed = parse(&target)?;
-                    self.shared.entry(parsed.stem.clone()).or_insert(parsed);
+                    let parsed = parse(&self.ns, &self.root, &target)?;
+                    let name = parsed.key.clone();
+                    let library = format!("lib{name}.so");
+                    current
+                        .imports
+                        .insert(imp.name.clone(), (name.clone(), true));
+                    self.shared.entry(name).or_insert(Dynamic {
+                        library,
+                        entry: parsed,
+                        support: Vec::new(),
+                    });
                 }
-                false => self.visit(&target, pos)?,
+                false => {
+                    let resolved = self.visit(&target, pos)?;
+                    current.imports.insert(imp.name.clone(), (resolved, false));
+                }
             }
         }
         Ok(())
@@ -117,24 +151,39 @@ impl Walk {
     }
 }
 
-fn parse(path: &Path) -> Result<Source, Fault> {
+fn parse(ns: &str, root: &Path, path: &Path) -> Result<Source, Fault> {
     let text = fs::read_to_string(path).map_err(|_| Fault::Io(path.display().to_string()))?;
-    let file = path
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("main.sx")
-        .to_owned();
-    let stem = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("main")
-        .to_owned();
+    let file = filename(path);
+    let stem = stemname(path);
     let program = simplex::inspect(Some(&file), path.parent(), &text).map_err(Fault::Frontend)?;
     Ok(Source {
-        stem,
+        key: stem.clone(),
         file,
+        meta: Meta {
+            ns: ns.to_owned(),
+            module: stem,
+            root: root.to_path_buf(),
+            strict: false,
+            local: true,
+            qualified: false,
+        },
+        imports: BTreeMap::new(),
         program,
     })
+}
+
+pub fn filename(path: &Path) -> String {
+    path.file_name()
+        .and_then(|part| part.to_str())
+        .unwrap_or("main.sx")
+        .to_owned()
+}
+
+pub fn stemname(path: &Path) -> String {
+    path.file_stem()
+        .and_then(|part| part.to_str())
+        .unwrap_or("main")
+        .to_owned()
 }
 
 fn anchor(entry: &Path) -> PathBuf {

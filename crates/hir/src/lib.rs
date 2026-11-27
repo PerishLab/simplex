@@ -1,4 +1,5 @@
 pub mod layout;
+pub mod plan;
 pub mod tree;
 
 mod bridge;
@@ -9,6 +10,7 @@ mod lower;
 
 pub use bridge::bridge;
 pub use layout::{Arm, Catalog, Field, Footprint, Layout, Mangle, Passing, Tagged, Type};
+pub use plan::{Graph, Linked, Plan, build};
 pub use tree::{Asset, Case, Expression, Import, Routine, Statement, Table, Unit};
 
 use simplex::Finding;
@@ -33,7 +35,7 @@ impl fmt::Display for Fault {
 impl std::error::Error for Fault {}
 
 pub fn lower(namespace: &str, entry: &Path, shared: bool) -> Result<Unit, Fault> {
-    let bundle = front::loader::load(entry)?;
+    let bundle = front::loader::load(namespace, entry)?;
     lower::engine::compile(namespace, &bundle, shared)
 }
 

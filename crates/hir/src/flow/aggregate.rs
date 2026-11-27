@@ -18,10 +18,39 @@ impl<'b, 'a> Frame<'b, 'a> {
         if field == "await" {
             return self.awaited(base);
         }
+        if let Some(found) = self.imported(base, field) {
+            return found;
+        }
         if let Some(unit) = self.unit(base, field, expected) {
             return unit;
         }
         self.projection(base, field, generics)
+    }
+
+    fn imported(&mut self, base: &syntax::Expression, field: &str) -> Option<(Expression, Type)> {
+        let syntax::Expression::Word { text, .. } = base else {
+            return None;
+        };
+        if self.lookup(text).is_some() {
+            return None;
+        }
+        let key = (self.stem.clone(), text.clone());
+        let (owner, false) = self.engine.world.imports.get(&key).cloned()? else {
+            return None;
+        };
+        let pair = (owner.clone(), field.to_owned());
+        if let Some(val) = self.engine.globals.get(&pair).cloned() {
+            return Some(val.into());
+        }
+        if let Some(sym) = self.engine.embedded.get(&pair).cloned() {
+            let slice = Type::Slice(Box::new(Type::Unsigned(1)));
+            return Some((Expression::Bytes(sym), slice));
+        }
+        self.engine
+            .world
+            .bindings
+            .contains_key(&pair)
+            .then(|| self.functionref(&owner, field))
     }
 
     fn awaited(&mut self, base: &syntax::Expression) -> (Expression, Type) {
@@ -61,24 +90,26 @@ impl<'b, 'a> Frame<'b, 'a> {
             },
             _ => Type::Unsigned(8),
         };
-        if op == "all" {
-            let out = Type::List(Box::new(elem.clone()));
-            return (
-                Expression::All {
+        match op {
+            "all" => {
+                let out = Type::List(Box::new(elem.clone()));
+                (
+                    Expression::All {
+                        fibers: Box::new(fibers),
+                        element: elem,
+                        kind: out.clone(),
+                    },
+                    out,
+                )
+            }
+            _ => (
+                Expression::Race {
                     fibers: Box::new(fibers),
-                    element: elem,
-                    kind: out.clone(),
+                    kind: elem.clone(),
                 },
-                out,
-            );
+                elem,
+            ),
         }
-        (
-            Expression::Race {
-                fibers: Box::new(fibers),
-                kind: elem.clone(),
-            },
-            elem,
-        )
     }
 
     pub fn projection(
@@ -88,35 +119,34 @@ impl<'b, 'a> Frame<'b, 'a> {
         generics: &[syntax::Spec],
     ) -> (Expression, Type) {
         let _ = generics;
+        if let Some(found) = self.imported(base, field) {
+            return found;
+        }
         let (raw, bkind) = self.place(base);
         let (src, peeled) = load(raw, bkind);
-        if let Type::Record(name) = &peeled {
-            let catalog = &self.engine.typing.catalog;
-            if let Some(slot) = catalog
+        let slot = match &peeled {
+            Type::Record(name) => self
+                .engine
+                .typing
+                .catalog
                 .records
                 .get(name)
                 .and_then(|r| r.fields.iter().find(|f| f.name == field))
-                .cloned()
-            {
-                return (
-                    Expression::Field {
-                        base: Box::new(src),
-                        name: slot.name,
-                        offset: slot.offset,
-                        kind: slot.kind.clone(),
-                    },
-                    slot.kind,
-                );
-            }
-        }
+                .cloned(),
+            _ => None,
+        };
+        let (name, offset, kind) = match slot {
+            Some(found) => (found.name, found.offset, found.kind),
+            None => (field.to_owned(), 0, Type::Unsigned(8)),
+        };
         (
             Expression::Field {
                 base: Box::new(src),
-                name: field.to_owned(),
-                offset: 0,
-                kind: Type::Unsigned(8),
+                name,
+                offset,
+                kind: kind.clone(),
             },
-            Type::Unsigned(8),
+            kind,
         )
     }
 
@@ -134,8 +164,10 @@ impl<'b, 'a> Frame<'b, 'a> {
         let Type::Choice(key) = &kind else {
             return None;
         };
-        let catalog = &self.engine.typing.catalog;
-        let tag = catalog
+        let tag = self
+            .engine
+            .typing
+            .catalog
             .choices
             .get(key)
             .and_then(|c| c.arms.iter().find(|a| a.name == arm))
@@ -167,10 +199,10 @@ impl<'b, 'a> Frame<'b, 'a> {
             syntax::Spec::Named { name, .. } => name.clone(),
             _ => owner.1.to_owned(),
         };
-        let mut lowered = BTreeMap::new();
-        for f in fields {
-            lowered.insert(f.name.clone(), self.expr(&f.value, None));
-        }
+        let lowered: BTreeMap<String, (Expression, Type)> = fields
+            .iter()
+            .map(|f| (f.name.clone(), self.expr(&f.value, None)))
+            .collect();
         let kind = match expected {
             Some(Type::Record(k)) => Type::Record(k.clone()),
             _ => self.infer(&module, &raw, &lowered),
@@ -219,19 +251,19 @@ impl<'b, 'a> Frame<'b, 'a> {
         key: &str,
         mut lowered: BTreeMap<String, (Expression, Type)>,
     ) -> Vec<(String, Expression)> {
-        let layout = self.engine.typing.catalog.records.get(key).cloned();
-        let Some(def) = layout else {
+        let Some(def) = self.engine.typing.catalog.records.get(key).cloned() else {
             return lowered.into_iter().map(|(k, (v, _))| (k, v)).collect();
         };
-        let mut out = Vec::new();
-        for slot in &def.fields {
-            let expr = match lowered.remove(&slot.name) {
-                Some((v, vt)) => self.coerce(v, &vt, &slot.kind),
-                None => zero(&slot.kind, &self.engine.typing.catalog),
-            };
-            out.push((slot.name.clone(), expr));
-        }
-        out
+        def.fields
+            .iter()
+            .map(|slot| {
+                let expr = match lowered.remove(&slot.name) {
+                    Some((v, vt)) => self.coerce(v, &vt, &slot.kind),
+                    None => zero(&slot.kind, &self.engine.typing.catalog),
+                };
+                (slot.name.clone(), expr)
+            })
+            .collect()
     }
 
     pub fn listed(
@@ -239,12 +271,11 @@ impl<'b, 'a> Frame<'b, 'a> {
         items: &[syntax::Expression],
         expected: Option<&Type>,
     ) -> (Expression, Type) {
-        let hint = match expected {
-            Some(Type::List(e) | Type::Slice(e)) => Some(e.as_ref()),
-            _ => None,
+        let mut elem = match expected {
+            Some(Type::List(e) | Type::Slice(e)) => *e.clone(),
+            _ => Type::Void,
         };
-        let mut out = Vec::new();
-        let mut elem = hint.cloned().unwrap_or(Type::Void);
+        let mut out = Vec::with_capacity(items.len());
         for item in items {
             let (val, ik) = self.expr(item, (!matches!(elem, Type::Void)).then_some(&elem));
             if matches!(elem, Type::Void) {

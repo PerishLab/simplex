@@ -39,10 +39,10 @@ impl<'a> Engine<'a> {
                 },
             );
         }
-        for leaf in &self.world.shared {
-            let lib = format!("lib{leaf}.so");
+        let dynamics = self.world.dynamics.clone();
+        for (leaf, lib) in &dynamics {
             self.libraries.insert(lib.clone());
-            self.external(leaf, &lib);
+            self.external(leaf, lib);
         }
     }
 
@@ -87,11 +87,12 @@ impl<'a> Engine<'a> {
                     built.output
                 }
             };
-            let symbol = Mangle::symbol(&self.ns, leaf, name);
+            let symbol = self.symbol(leaf, name);
+            let module = self.coords(leaf).1.to_owned();
             self.imports.insert(
                 symbol.clone(),
                 Import {
-                    local: format!("{leaf}.{name}"),
+                    local: format!("{module}.{name}"),
                     symbol,
                     library: Some(lib.to_owned()),
                     inputs: params,
@@ -119,7 +120,7 @@ impl<'a> Engine<'a> {
         let subject = self.typing.nominal(&claim.module, &claim.subject, args);
         let label = encode(&subject);
         let contract = &claim.target.1;
-        let sym = Mangle::table(&self.ns, &claim.module, &label, contract);
+        let sym = self.vtable(&claim.module, &label, contract);
         if self.tables.contains_key(&sym) {
             return sym;
         }
@@ -183,7 +184,7 @@ impl<'a> Engine<'a> {
                 expr: &expr,
                 subst: sig.0,
                 constants: &none,
-                exported: self.shared,
+                exported: self.shared && self.world.local(&claim.module),
             };
             let routine = self.callable((&claim.module, msym.to_owned()), &spec);
             self.routines.push(routine);

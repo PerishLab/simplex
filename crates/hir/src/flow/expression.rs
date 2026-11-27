@@ -1,6 +1,6 @@
 use crate::eval::asset::{byte, unescape};
 use crate::front::numeric::{digits, float, narrow};
-use crate::layout::{Mangle, Type};
+use crate::layout::Type;
 use crate::lower::frame::Frame;
 use crate::tree::Expression;
 use simplex::tree as syntax;
@@ -14,8 +14,9 @@ impl<'b, 'a> Frame<'b, 'a> {
         match node {
             syntax::Expression::Number(text) => self.number(text, expected),
             syntax::Expression::Text(raw) => {
-                let ns = self.engine.ns.clone();
-                let sym = self.engine.pool.intern((&ns, &self.stem), unescape(raw));
+                let (ns, module) = self.engine.world.coords(&self.engine.ns, &self.stem);
+                let (ns, module) = (ns.to_owned(), module.to_owned());
+                let sym = self.engine.pool.intern((&ns, &module), unescape(raw));
                 (
                     Expression::Bytes(sym),
                     Type::Slice(Box::new(Type::Unsigned(1))),
@@ -153,12 +154,13 @@ impl<'b, 'a> Frame<'b, 'a> {
             }
             return (Expression::Local(text.to_owned(), kind.clone()), kind);
         }
-        self.reference(text)
+        let stem = self.stem.clone();
+        self.functionref(&stem, text)
     }
 
-    fn reference(&mut self, text: &str) -> (Expression, Type) {
+    pub fn functionref(&mut self, owner: &str, text: &str) -> (Expression, Type) {
         let bindings = &self.engine.world.bindings;
-        if let Some(b) = bindings.get(&(self.stem.clone(), text.to_owned())).cloned()
+        if let Some(b) = bindings.get(&(owner.to_owned(), text.to_owned())).cloned()
             && let syntax::Expression::Function {
                 asynchronous,
                 inputs,
@@ -171,12 +173,12 @@ impl<'b, 'a> Frame<'b, 'a> {
                 .map(|p| {
                     self.engine
                         .typing
-                        .optional(&self.stem, p.annotation.as_ref(), &self.subst)
+                        .optional(owner, p.annotation.as_ref(), &self.subst)
                 })
                 .collect();
             let raw = match output {
-                Some(spec) => self.engine.typing.resolve(&self.stem, spec, &self.subst),
-                None => self.engine.ensure(&self.stem, text).unwrap_or(Type::Void),
+                Some(spec) => self.engine.typing.resolve(owner, spec, &self.subst),
+                None => self.engine.ensure(owner, text).unwrap_or(Type::Void),
             };
             let out = match asynchronous {
                 true => Type::Fiber(Box::new(raw)),
@@ -186,7 +188,7 @@ impl<'b, 'a> Frame<'b, 'a> {
                 inputs: ins,
                 output: Box::new(out),
             };
-            let sym = Mangle::symbol(&self.engine.ns, &self.stem, text);
+            let sym = self.engine.symbol(owner, text);
             return (Expression::Symbol(sym, fkind.clone()), fkind);
         }
         (

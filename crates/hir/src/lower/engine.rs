@@ -5,7 +5,7 @@ use crate::front::loader::Bundle;
 use crate::front::numeric::{Value, retype};
 use crate::front::types::{Map, Typing};
 use crate::front::world::World;
-use crate::layout::{Mangle, Type};
+use crate::layout::Type;
 use crate::tree::{Import, Routine, Table, Unit};
 use simplex::tree as syntax;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -44,6 +44,7 @@ pub struct Engine<'a> {
     pub seen: BTreeSet<String>,
     pub pending: VecDeque<Task>,
     pub counter: usize,
+    pub fault: Option<Fault>,
 }
 
 pub fn compile(ns: &str, bundle: &Bundle, shared: bool) -> Result<Unit, Fault> {
@@ -65,6 +66,7 @@ pub fn compile(ns: &str, bundle: &Bundle, shared: bool) -> Result<Unit, Fault> {
         seen: BTreeSet::new(),
         pending: VecDeque::new(),
         counter: 0,
+        fault: None,
     };
     engine.prepare()?;
     engine.boundaries();
@@ -72,6 +74,9 @@ pub fn compile(ns: &str, bundle: &Bundle, shared: bool) -> Result<Unit, Fault> {
     engine.declarations();
     while let Some(task) = engine.pending.pop_front() {
         engine.specialize(task);
+    }
+    if let Some(err) = engine.fault {
+        return Err(err);
     }
     Ok(engine.finish())
 }
@@ -81,6 +86,18 @@ impl<'a> Engine<'a> {
         let id = self.counter;
         self.counter += 1;
         format!("${prefix}{id}")
+    }
+
+    pub fn symbol(&self, key: &str, name: &str) -> String {
+        self.world.symbol(&self.ns, key, name)
+    }
+
+    pub fn vtable(&self, key: &str, subject: &str, contract: &str) -> String {
+        self.world.table(&self.ns, key, subject, contract)
+    }
+
+    pub fn coords<'b>(&'b self, key: &'b str) -> (&'b str, &'b str) {
+        self.world.coords(&self.ns, key)
     }
 
     fn prepare(&mut self) -> Result<(), Fault> {
@@ -118,9 +135,10 @@ impl<'a> Engine<'a> {
     }
 
     fn constant(&mut self, stem: &str, b: &syntax::Binding) -> Result<(), Fault> {
+        let (ns, module) = self.world.coords(&self.ns, stem);
         if let syntax::Expression::Text(raw) = &b.value {
             let bytes = crate::eval::asset::unescape(raw);
-            let sym = self.pool.intern((&self.ns, stem), bytes);
+            let sym = self.pool.intern((ns, module), bytes);
             self.embedded.insert((stem.to_owned(), b.name.clone()), sym);
             return Ok(());
         }
@@ -130,7 +148,8 @@ impl<'a> Engine<'a> {
             && matches!(callee.as_ref(), syntax::Expression::Word { text, .. } if text == "embed")
             && let Some(syntax::Expression::Text(raw)) = arguments.first()
         {
-            let sym = self.pool.embed((&self.ns, stem), &self.root, raw)?;
+            let scope = self.world.folder(&self.root, stem);
+            let sym = self.pool.embed((ns, module), scope, raw)?;
             self.embedded.insert((stem.to_owned(), b.name.clone()), sym);
             return Ok(());
         }
@@ -159,7 +178,7 @@ impl<'a> Engine<'a> {
 
     fn finish(self) -> Unit {
         let last = self.world.order.last().cloned().unwrap_or_default();
-        let main = Mangle::symbol(&self.ns, &last, "main");
+        let main = self.symbol(&last, "main");
         let found = self.routines.iter().any(|r| r.symbol == main);
         let entry = (!self.shared && found).then_some(main);
         let _ = Type::Void;

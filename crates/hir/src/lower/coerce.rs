@@ -1,4 +1,5 @@
 use crate::front::numeric::{encode, narrow};
+use crate::front::world::Claim;
 use crate::layout::Type;
 use crate::lower::frame::Frame;
 use crate::tree::Expression;
@@ -35,12 +36,7 @@ impl<'b, 'a> Frame<'b, 'a> {
                 .owner(&raw)
                 .cloned()
                 .unwrap_or_else(|| (self.stem.clone(), raw, Vec::new()));
-            let claims = &self.engine.world.claims;
-            if let Some(claim) = claims
-                .iter()
-                .find(|c| c.subject == owner.1 && c.target.1 == *contract)
-                .cloned()
-            {
+            if let Some(claim) = self.conformance(&owner.0, &owner.1, contract) {
                 let tsym = self.engine.table(&claim, &owner.2);
                 return Expression::Coerce {
                     value: Box::new(expr),
@@ -50,6 +46,20 @@ impl<'b, 'a> Frame<'b, 'a> {
             }
         }
         expr
+    }
+
+    fn conformance(&self, owner: &str, subject: &str, contract: &str) -> Option<Claim> {
+        let world = self.engine.world;
+        let matches = |c: &Claim| {
+            c.subject == subject
+                && (world.traitname(&c.target.0, &c.target.1) == contract || c.target.1 == contract)
+        };
+        world
+            .claims
+            .iter()
+            .find(|c| c.module == owner && matches(c))
+            .or_else(|| world.claims.iter().find(|c| matches(c)))
+            .cloned()
     }
 
     pub fn window(
@@ -115,13 +125,14 @@ impl<'b, 'a> Frame<'b, 'a> {
             return;
         }
         self.engine.typing.origin();
+        let (ns, module) = self.engine.world.coords(&self.engine.ns, &self.stem);
+        let (ns, module) = (ns.to_owned(), module.to_owned());
         let files = &self.engine.world.files;
         let file = files
             .get(&self.stem)
             .cloned()
-            .unwrap_or_else(|| format!("{}.sx", self.stem));
-        let ns = self.engine.ns.clone();
-        let origin = self.engine.pool.origin((&ns, &self.stem, &file), pos);
+            .unwrap_or_else(|| format!("{module}.sx"));
+        let origin = self.engine.pool.origin((&ns, &module, &file), pos);
         runtime.push(origin);
     }
 }
