@@ -3,7 +3,7 @@
 [[layout.seat]]
 path = "crates/*"
 anchor = ["Cargo.toml"]
-note = "The Simplex CLI, frontend, HIR, LIR, target codegen, object linker and transitional linux-x86_64 workspace members."
+note = "The Simplex CLI, frontend, HIR, LIR, target codegen and object linker workspace members."
 
 [[layout.seat]]
 path = "cases/*"

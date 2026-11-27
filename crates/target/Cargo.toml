@@ -4,8 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-publish = false
 
 [dependencies]
-simplex-ir = { path = "../ir", version = "=0.0.0" }
-simplex-object = { path = "../object", version = "=0.0.0" }
+simplex-ir = { path = "../ir" }
+simplex-object = { path = "../object" }
