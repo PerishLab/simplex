@@ -67,7 +67,7 @@ pub struct Item {
 pub struct Record {
     pub offset: u64,
     pub symbol: u32,
-    pub kind: u32,
+    pub code: u32,
     pub addend: i64,
 }
 
@@ -144,7 +144,7 @@ impl Buffer {
     }
 
     pub fn record(&mut self, item: &Record) {
-        let info = (u64::from(item.symbol) << 32) | u64::from(item.kind);
+        let info = (u64::from(item.symbol) << 32) | u64::from(item.code);
         let mut raw = [0u8; 24];
         raw[0..8].copy_from_slice(&item.offset.to_le_bytes());
         raw[8..16].copy_from_slice(&info.to_le_bytes());

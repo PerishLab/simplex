@@ -3,7 +3,7 @@
 [[layout.seat]]
 path = "crates/*"
 anchor = ["Cargo.toml"]
-note = "The Simplex CLI, frontend, HIR, x86_64 emitter, ELF64 linker and Fiber runtime workspace members."
+note = "The Simplex CLI, frontend, HIR, LIR, target codegen, object linker and transitional linux-x86_64 workspace members."
 
 [[layout.seat]]
 path = "cases/*"
@@ -20,7 +20,7 @@ note = "Git attribute policy."
 
 [[layout.file]]
 name = ["DESIGN.md"]
-note = "Simplex language design baseline, aesthetic laws and linux-x86_64 binary ABI contracts."
+note = "Simplex language design baseline, aesthetic laws, target-neutral LIR/Fiber architecture and tri-OS binary ABI contracts."
 
 [[layout.file]]
 name = ["Cargo.toml", "Cargo.lock"]

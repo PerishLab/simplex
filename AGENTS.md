@@ -14,8 +14,12 @@ non-goals, native records, exit condition, governed verification harness,
 6-crate cross-layer ABI spine, `N0–N4` zero-LLVM `linux-x86_64` native
 compilation (`Standalone`/`Dynamic`/`Shared` `.so` `ELF64`, `extern "c"`,
 cross-`.so` `&Interface` fat-pointer dispatch and stackful `Fiber<T>`
-`.await`/`.all()`/`.race()` deterministic cancellation runtime) is live, while
-a released Depot `SKILL.md` promise remains `unknown` until formal release.
+`.await`/`.all()`/`.race()` deterministic cancellation runtime) is live, and
+Cycle 2 (`Substrate`) `S0 · Spine` target-neutral contract crates
+(`crates/{ir,object,target}`) are now anchored in the workspace alongside the
+active `Cycle 1` `linux-x86_64` pipeline while `S1–S5` implementation is
+in-flight; a released Depot `SKILL.md` promise remains `unknown` until formal
+release.
 
 ## Explored question
 
@@ -37,7 +41,7 @@ native code generator, ELF64/`.so` linker and stackful `Fiber` runtime.
 
 ## Workspace topology
 
-The Rust workspace forms a strict zero-cycle DAG across six crates:
+The Rust workspace forms a strict zero-cycle DAG across nine crates during the Cycle 2 (`Substrate`) transition:
 
 - `crates/lib` (`simplex`): Zero-backtracking lexer, parser, canonical
   formatter, local semantic/borrow/`comptime`/`dylib`/`meta` checker and 9-domain
@@ -58,6 +62,15 @@ The Rust workspace forms a strict zero-cycle DAG across six crates:
   `simplex-runtime`): Linear IR, loop-aware linear-scan register allocator
   (`rdi..r9` args, `rax+rdx` pair returns, `rbx, r12..r15` callee-saved) and
   `x86_64`/SSE2 native machine-code compiler.
+- `crates/ir` (`simplex-ir`, zero dependencies): Frozen `S0` target-neutral
+  Block-Arg SSA, hardware memory-ordering and `Fiber` lowering contract (`S1`
+  implementation pending).
+- `crates/object` (`simplex-object`, zero dependencies): Frozen `S0` unified
+  `ELF64` / `PE32+` / `Mach-O 64` `Artifact` emission contract (`S2`
+  implementation pending).
+- `crates/target` (`simplex-target`, depends on `simplex-ir`, `simplex-object`):
+  Frozen `S0` shared register-allocation and `Linux` / `Windows` / `Apple`
+  backend contract (`S3–S5` implementation pending).
 - `crates/cli` (`simplex-cli`): `simplex {check, format, build}` binary and
   black-box process execution tests (`crates/cli/tests/`).
 

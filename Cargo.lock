@@ -592,8 +592,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "simplex-ir"
+version = "0.0.0"
+
+[[package]]
+name = "simplex-object"
+version = "0.0.0"
+
+[[package]]
 name = "simplex-runtime"
 version = "0.0.0"
+
+[[package]]
+name = "simplex-target"
+version = "0.0.0"
+dependencies = [
+ "simplex-ir",
+ "simplex-object",
+]
 
 [[package]]
 name = "strsim"
