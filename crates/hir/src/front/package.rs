@@ -1,13 +1,13 @@
 use crate::Fault;
 use crate::front::access::{Exports, summarize, verify};
-use crate::front::loader::{Bundle, Dynamic, Meta, Source, filename, stemname};
+use crate::front::loader::{Bundle, Dynamic, Folder, Meta, Source, canonicalize, filename};
 use crate::plan::{Graph, Linked};
 use simplex::tree::{Import, Statement};
 use simplex::{Code, Finding};
 use simplex_package::Coordinate;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 pub type Requested = Vec<(Coordinate, (usize, usize))>;
 
@@ -15,6 +15,7 @@ struct Linker<'a> {
     graph: &'a Graph,
     root: Coordinate,
     building: &'a BTreeSet<Coordinate>,
+    checked: BTreeSet<Coordinate>,
     active: BTreeSet<(Coordinate, PathBuf)>,
     seen: BTreeMap<(Coordinate, PathBuf), (String, Exports)>,
     units: Vec<Source>,
@@ -25,35 +26,65 @@ struct Linker<'a> {
 pub fn load(
     graph: &Graph,
     target: &Linked,
+    shared: bool,
     building: &BTreeSet<Coordinate>,
 ) -> Result<(Bundle, Requested), Fault> {
-    let entry = target.root.join(&target.entry);
-    if !entry.is_file() {
-        return Err(Fault::Io(entry.display().to_string()));
+    match shared {
+        false => {
+            let entry = target.root.join("main.sx");
+            if !entry.is_file() {
+                return Err(Fault::Io(entry.display().to_string()));
+            }
+            walkfiles(graph, target, &[entry], building)
+        }
+        true => {
+            let files = Folder(&target.root).discover()?;
+            walkfiles(graph, target, &files, building)
+        }
     }
-    let canonical = canonicalize(&entry);
+}
+
+fn walkfiles(
+    graph: &Graph,
+    target: &Linked,
+    files: &[PathBuf],
+    building: &BTreeSet<Coordinate>,
+) -> Result<(Bundle, Requested), Fault> {
     let mut linker = Linker {
         graph,
         root: target.coordinate.clone(),
         building,
+        checked: BTreeSet::new(),
         active: BTreeSet::new(),
         seen: BTreeMap::new(),
         units: Vec::new(),
         shared: BTreeMap::new(),
         requested: Vec::new(),
     };
-    linker.visit(target, &canonical, (1, 1))?;
-    Ok((
-        Bundle {
-            root: target.root.clone(),
-            units: linker.units,
-            shared: linker.shared,
-        },
-        linker.requested,
-    ))
+    linker.checkshadow(target)?;
+    for file in files {
+        let canonical = canonicalize(file);
+        linker.visit(target, &canonical, (1, 1))?;
+    }
+    let bundle = Bundle {
+        root: target.root.clone(),
+        units: linker.units,
+        shared: linker.shared,
+    };
+    Ok((bundle, linker.requested))
 }
 
 impl<'a> Linker<'a> {
+    fn checkshadow(&mut self, package: &Linked) -> Result<(), Fault> {
+        if !self.checked.insert(package.coordinate.clone()) {
+            return Ok(());
+        }
+        if Folder(&package.root).shadowed(&package.dependencies)? {
+            return Err(fault(Code::Import, (1, 1)));
+        }
+        Ok(())
+    }
+
     fn visit(
         &mut self,
         package: &Linked,
@@ -106,16 +137,24 @@ impl<'a> Linker<'a> {
         pos: (usize, usize),
     ) -> Result<(String, Exports), Fault> {
         let (package, dir) = scope;
-        if let [alias] = imp.path.as_slice()
+        if let Some(alias) = imp.path.first()
             && let Some(coord) = package.dependencies.get(alias)
         {
+            if imp.path.len() == 1 {
+                let code = match imp.dynamic {
+                    true => Code::Boundary,
+                    false => Code::Import,
+                };
+                return Err(fault(code, pos));
+            }
             let target = self
                 .graph
                 .lookup(coord)
                 .ok_or_else(|| fault(Code::Import, pos))?;
+            let subpath = &imp.path[1..];
             return match imp.dynamic {
-                true => self.dynamic(target, pos),
-                false => self.external(target, pos),
+                true => self.dynamic(target, subpath, pos),
+                false => self.external(target, subpath, pos),
             };
         }
         let local = locate(package, dir, imp, pos)?;
@@ -128,12 +167,14 @@ impl<'a> Linker<'a> {
     fn external(
         &mut self,
         target: &Linked,
+        subpath: &[String],
         pos: (usize, usize),
     ) -> Result<(String, Exports), Fault> {
         if target.coordinate != self.root && self.building.contains(&target.coordinate) {
             return Err(fault(Code::Cycle, pos));
         }
-        let entry = target.root.join(&target.entry);
+        self.checkshadow(target)?;
+        let entry = Folder(&target.root).resolve(subpath);
         if !entry.is_file() {
             return Err(fault(Code::Import, pos));
         }
@@ -143,25 +184,25 @@ impl<'a> Linker<'a> {
     fn dynamic(
         &mut self,
         target: &Linked,
+        subpath: &[String],
         pos: (usize, usize),
     ) -> Result<(String, Exports), Fault> {
         if self.building.contains(&target.coordinate) {
             return Err(fault(Code::Cycle, pos));
         }
-        let entry = target.root.join(&target.entry);
+        self.checkshadow(target)?;
+        let entry = Folder(&target.root).resolve(subpath);
         if !entry.is_file() {
             return Err(fault(Code::Import, pos));
         }
         self.requested.push((target.coordinate.clone(), pos));
-        let key = format!(
-            "dylib${}${}",
-            target.coordinate.namespace(),
-            stemname(Path::new(&target.entry))
-        );
+        let canonical = canonicalize(&entry);
+        let module = Folder(&target.root).module(&canonical);
+        let key = format!("dylib${}${}", target.coordinate.namespace(), module);
         if let Some(existing) = self.shared.get(&key) {
             return Ok((key, summarize(&existing.entry.program, true)));
         }
-        let (sub, _) = load(self.graph, target, self.building)?;
+        let (sub, _) = walkfiles(self.graph, target, &[canonical], self.building)?;
         let mut units = sub.units;
         let Some(mut main) = units.pop() else {
             return Err(fault(Code::Import, pos));
@@ -187,7 +228,7 @@ impl<'a> Linker<'a> {
     ) -> Result<(String, Exports), Fault> {
         let mut parsed = read(package, path, false, pos)?;
         let key = format!("dylib${}", parsed.key);
-        let library = format!("lib{}.so", parsed.meta.module);
+        let library = format!("{}.so", parsed.meta.module);
         parsed.key.clone_from(&key);
         let exports = summarize(&parsed.program, true);
         self.shared.entry(key.clone()).or_insert(Dynamic {
@@ -205,16 +246,11 @@ fn locate(
     imp: &Import,
     pos: (usize, usize),
 ) -> Result<PathBuf, Fault> {
-    let mut rel = PathBuf::new();
-    for seg in &imp.path {
-        rel.push(seg);
-    }
-    rel.set_extension("sx");
-    let direct = dir.join(&rel);
+    let direct = Folder(dir).resolve(&imp.path);
     if direct.is_file() {
         return Ok(direct);
     }
-    let rooted = package.root.join(&rel);
+    let rooted = Folder(&package.root).resolve(&imp.path);
     if rooted.is_file() {
         return Ok(rooted);
     }
@@ -226,7 +262,7 @@ fn read(package: &Linked, path: &Path, local: bool, pos: (usize, usize)) -> Resu
     let file = filename(path);
     let program = simplex::inspect(Some(&file), None, &text).map_err(Fault::Frontend)?;
     let ns = package.coordinate.namespace();
-    let module = modulename(package, path);
+    let module = Folder(&package.root).module(path);
     let key = format!("{ns}${module}");
     Ok(Source {
         key,
@@ -242,33 +278,6 @@ fn read(package: &Linked, path: &Path, local: bool, pos: (usize, usize)) -> Resu
         imports: BTreeMap::new(),
         program,
     })
-}
-
-fn modulename(package: &Linked, path: &Path) -> String {
-    let entry = canonicalize(&package.root.join(&package.entry));
-    if path == entry {
-        return stemname(Path::new(&package.entry));
-    }
-    let base = canonicalize(&package.root);
-    let Ok(rel) = path.strip_prefix(&base) else {
-        return stemname(path);
-    };
-    let trimmed = rel.with_extension("");
-    let parts: Vec<&str> = trimmed
-        .components()
-        .filter_map(|comp| match comp {
-            Component::Normal(part) => part.to_str(),
-            _ => None,
-        })
-        .collect();
-    match parts.is_empty() {
-        true => stemname(path),
-        false => parts.join("$"),
-    }
-}
-
-fn canonicalize(path: &Path) -> PathBuf {
-    fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
 
 fn fault(code: Code, pos: (usize, usize)) -> Fault {

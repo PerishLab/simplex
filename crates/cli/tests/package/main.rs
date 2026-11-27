@@ -1,12 +1,14 @@
 mod archive;
 mod audit;
 mod consumer;
-mod crypto;
+mod fixture;
 mod harness;
-mod protocol;
-mod server;
+mod lemma;
+mod mock;
 mod targets;
 mod workspace;
+
+use mock::{crypto, protocol, server};
 
 use std::collections::BTreeMap;
 use std::io::{Read, Write};

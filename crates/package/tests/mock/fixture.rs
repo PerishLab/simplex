@@ -13,12 +13,12 @@ pub fn sample() -> Credentials {
 pub fn bundle(coordinate: &Coordinate, source: &str) -> (Vec<u8>, Seal) {
     let workspace = tempdir().expect("package source tempdir");
     let toml = format!(
-        "schema = \"simplex.package/v1\"\n\n[library]\nscope = \"{}\"\nname = \"{}\"\nversion = \"{}\"\nchannel = \"{}\"\nentry = \"{}.sx\"\n",
-        coordinate.scope, coordinate.name, coordinate.version, coordinate.channel, coordinate.name
+        "schema = \"simplex.lemma/v1\"\n\n[lemma]\nscope = \"{}\"\nname = \"{}\"\nversion = \"{}\"\nchannel = \"{}\"\n",
+        coordinate.scope, coordinate.name, coordinate.version, coordinate.channel
     );
     fs::write(workspace.path().join("simplex.toml"), &toml).expect("write manifest");
     fs::write(
-        workspace.path().join(format!("{}.sx", coordinate.name)),
+        workspace.path().join(format!("{}.sx", coordinate.leaf())),
         source,
     )
     .expect("write sx");

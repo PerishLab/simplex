@@ -15,7 +15,7 @@ fn lifecycle() {
         region: "auto".into(),
         credentials: Some(sample()),
     };
-    let coord = Coordinate::parse("perish/codec/1.0.0/stable").expect("coord");
+    let coord = Coordinate::parse("perish/codec.json/1.0.0/stable").expect("coord");
     let (archive, seal) = bundle(&coord, "pub answer :: () -> i64 { 42 }\n");
 
     let producer = tempdir().expect("producer cache");
@@ -25,8 +25,8 @@ fn lifecycle() {
     assert_eq!(
         server.keys(),
         vec![
-            "perish/codec/1.0.0/stable/seal.toml".to_owned(),
-            "perish/codec/1.0.0/stable/source.tar".to_owned(),
+            "perish/codec.json/1.0.0/stable/seal.toml".to_owned(),
+            "perish/codec.json/1.0.0/stable/source.tar".to_owned(),
         ]
     );
     let records = server.records();
@@ -36,12 +36,12 @@ fn lifecycle() {
     assert!(
         records[0]
             .target
-            .ends_with("/perish/codec/1.0.0/stable/source.tar")
+            .ends_with("/perish/codec.json/1.0.0/stable/source.tar")
     );
     assert!(
         records[1]
             .target
-            .ends_with("/perish/codec/1.0.0/stable/seal.toml")
+            .ends_with("/perish/codec.json/1.0.0/stable/seal.toml")
     );
     assert_eq!(
         records[0].headers.get("if-none-match").map(String::as_str),
@@ -62,7 +62,13 @@ fn lifecycle() {
     assert_eq!(fetched.coordinate, coord);
     assert_eq!(fetched.archive, archive);
     assert_eq!(fetched.seal, seal);
-    assert!(fetched.root.join("codec.sx").exists());
+    assert!(fetched.root.join("json.sx").exists());
+    assert!(
+        consumer
+            .path()
+            .join("perish/codec.json/1.0.0/stable/seal.toml")
+            .exists()
+    );
     assert_eq!(
         fs::read(fetched.root.join("asset.bin")).expect("read asset"),
         b"payload-bytes"
@@ -72,7 +78,7 @@ fn lifecycle() {
     let offline = Store::new(consumer.path().to_path_buf(), None);
     assert_eq!(offline.fetch(&coord).expect("offline cache hit").seal, seal);
 
-    let uncached = Coordinate::parse("perish/codec/2.0.0/stable").expect("uncached");
+    let uncached = Coordinate::parse("perish/codec.json/2.0.0/stable").expect("uncached");
     assert!(matches!(offline.fetch(&uncached), Err(Fault::Offline(_))));
 }
 
@@ -141,10 +147,10 @@ fn isolation() {
         credentials: None,
     };
     for spec in [
-        "perish/math/0.9.0/stable",
-        "perish/math/1.2.0/stable",
-        "perish/math/1.10.0/stable",
-        "perish/math/9.0.0/canary",
+        "perish/codec.json/0.9.0/stable",
+        "perish/codec.json/1.2.0/stable",
+        "perish/codec.json/1.10.0/stable",
+        "perish/codec.json/9.0.0/canary",
     ] {
         let coord = Coordinate::parse(spec).expect("coord");
         let (archive, seal) = bundle(&coord, "pub unit :: () -> i64 { 1 }\n");
@@ -152,29 +158,34 @@ fn isolation() {
         server.insert(&format!("{prefix}/source.tar"), archive);
         server.insert(&format!("{prefix}/seal.toml"), seal.render().into_bytes());
     }
-    server.insert("perish/math/8.8.8/stable/source.tar", b"orphan".to_vec());
+    server.insert(
+        "perish/codec.json/8.8.8/stable/source.tar",
+        b"orphan".to_vec(),
+    );
 
     let home = tempdir().expect("cache");
     let store = Store::new(home.path().to_path_buf(), Some(endpoint));
 
-    let canary = Coordinate::parse("perish/math/9.0.0/canary").expect("canary");
+    let canary = Coordinate::parse("perish/codec.json/9.0.0/canary").expect("canary");
     let (raw, signed) = bundle(&canary, "pub unit :: () -> i64 { 1 }\n");
     assert!(matches!(
         store.publish(&raw, &signed),
         Err(Fault::Remote(_))
     ));
 
-    let missing = Coordinate::parse("perish/math/9.0.0/stable").expect("missing stable");
+    let missing = Coordinate::parse("perish/codec.json/9.0.0/stable").expect("missing stable");
     assert!(matches!(store.fetch(&missing), Err(Fault::Missing(_))));
 
-    let patch = Coordinate::parse("perish/math/1.2.1/stable").expect("missing patch");
+    let patch = Coordinate::parse("perish/codec.json/1.2.1/stable").expect("missing patch");
     assert!(matches!(store.fetch(&patch), Err(Fault::Missing(_))));
     assert_eq!(
         store.fetch(&canary).expect("public fetch").coordinate,
         canary
     );
 
-    let best = store.latest("perish", "math", "stable").expect("latest");
+    let best = store
+        .latest("perish", "codec.json", "stable")
+        .expect("latest");
     assert_eq!(
         best,
         Some(Version {
@@ -183,5 +194,8 @@ fn isolation() {
             patch: 0
         })
     );
-    assert_eq!(store.latest("perish", "math", "rc").expect("rc"), None);
+    assert_eq!(
+        store.latest("perish", "codec.json", "rc").expect("rc"),
+        None
+    );
 }

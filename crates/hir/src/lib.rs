@@ -10,7 +10,7 @@ mod lower;
 
 pub use bridge::bridge;
 pub use layout::{Arm, Catalog, Field, Footprint, Layout, Mangle, Passing, Tagged, Type};
-pub use plan::{Graph, Linked, Plan, build};
+pub use plan::{Graph, Linked, Plan, build, register};
 pub use tree::{Asset, Case, Expression, Import, Routine, Statement, Table, Unit};
 
 use simplex::Finding;
@@ -20,6 +20,7 @@ use std::path::Path;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Fault {
     Io(String),
+    Collision(String),
     Frontend(Finding),
 }
 
@@ -27,6 +28,7 @@ impl fmt::Display for Fault {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Io(path) => write!(out, "unreadable module: {path}"),
+            Self::Collision(detail) => out.write_str(detail),
             Self::Frontend(finding) => write!(out, "{finding}"),
         }
     }

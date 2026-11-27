@@ -23,6 +23,10 @@ impl Image {
         u64::from_le_bytes(slice.try_into().expect("wide"))
     }
 
+    fn holds(&self, needle: &[u8]) -> bool {
+        self.0.windows(needle.len()).any(|part| part == needle)
+    }
+
     fn segments(&self) -> Vec<u32> {
         let table = self.wide(32) as usize;
         let stride = self.short(54) as usize;
@@ -146,7 +150,7 @@ pub main := () -> i64 {
 ",
     );
 
-    let artifact = sandbox.join("libcodec.so");
+    let artifact = sandbox.join("codec.so");
     sandbox.compile(&unit, &artifact, true);
     let image = Image::open(&artifact);
     assert_eq!(&image.0[0..4], b"\x7fELF");
@@ -163,6 +167,9 @@ pub main := () -> i64 {
     let linked = host.segments();
     assert!(linked.contains(&2));
     assert!(linked.contains(&3));
+    assert!(host.holds(b"codec.so\0"));
+    assert!(!host.holds(b"libcodec.so"));
+    assert!(host.holds(b"$ORIGIN\0"));
     assert_eq!(execute(&binary, sandbox.root()).status.code(), Some(94));
 
     sandbox.stage("codec.sx", &updated);

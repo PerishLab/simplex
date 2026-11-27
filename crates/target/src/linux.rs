@@ -91,9 +91,9 @@ fn catalog(module: &Module, mode: Mode) -> Catalog {
 }
 
 fn library(stem: &str) -> String {
-    match stem.starts_with("lib") && stem.ends_with(".so") {
+    match stem.ends_with(".so") {
         true => stem.to_owned(),
-        false => format!("lib{stem}.so"),
+        false => format!("{stem}.so"),
     }
 }
 

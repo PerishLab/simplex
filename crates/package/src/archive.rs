@@ -21,7 +21,7 @@ pub fn pack(root: &Path, manifest: &Manifest) -> Result<(Vec<u8>, String), Fault
     if manifest
         .dependencies
         .values()
-        .any(|item| matches!(item, Dependency::Workspace))
+        .any(|item| matches!(item, Dependency::Workspace(_)))
     {
         return Err(Fault::Manifest(
             "unrewritten workspace dependency cannot be packed".into(),

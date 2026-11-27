@@ -113,7 +113,7 @@ pub fn linux() -> Vec<Record> {
 fn swap(workspace: &Workspace) -> Vec<Record> {
     let unit = workspace.stage("codec.sx", &late::library(10, 3));
     let entry = workspace.stage("main.sx", late::caller());
-    let library = workspace.output("libcodec.so");
+    let library = workspace.output("codec.so");
     let runner = workspace.output("runner");
     let folder = workspace.join("out");
     workspace.shared("linux-x86_64", &unit, &library);

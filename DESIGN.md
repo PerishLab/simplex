@@ -142,8 +142,8 @@ accumulate.
      pairs and aggregates pass in consecutive registers and return in `rax + rdx`;
      aggregates above `16 B` use a hidden `rdi` `sret` pointer; emits standalone
      static `ET_EXEC` when dependency-free, dynamic `PT_INTERP` PIE when linking
-     `libc.so.6` or `lib<stem>.so` (`DT_RUNPATH=$ORIGIN`), and `ET_DYN`
-     `lib<stem>.so` shared libraries.
+     `libc.so.6` or `<stem>.so` (`DT_RUNPATH=$ORIGIN`), and `ET_DYN`
+     `<stem>.so` shared libraries.
    - **`windows-x86_64` (`PE32+` + Microsoft x64)**: Up to four arguments in
      `rcx/xmm0, rdx/xmm1, r8/xmm2, r9/xmm3` with mandatory `32 B` caller shadow
      space and `16 B` stack alignment before every call; `1, 2, 4, 8 B` values
@@ -158,15 +158,17 @@ accumulate.
      and pass via caller stack-copy pointers; enforces `16 KiB` Mach-O segment
      alignment paired with `4 KiB` `ADRP` page addressing, `LC_UUID`,
      `LC_DYLD_CHAINED_FIXUPS`, `LC_DYLD_EXPORTS_TRIE`
-     (`@executable_path/lib<stem>.dylib`), `/usr/lib/libSystem.B.dylib` and
+     (`@executable_path/<stem>.dylib`), `/usr/lib/libSystem.B.dylib` and
      built-in SHA-256 `CodeDirectory` (`LC_CODE_SIGNATURE`).
 
 ## Library identity, mechanical seal and S3 distribution
 
-1. **Four-tuple library identity (`Coordinate`) and three-tier `x.y.z` law**:
-   Every published library release is uniquely addressed by four mandatory
-   lowercase `singleword` / unsigned-integer fields `(scope, name, version, channel)`
-   with zero defaults and zero pre-release or build-metadata version suffixes:
+1. **Four-tuple Lemma identity (`Coordinate`) and three-tier `x.y.z` law**:
+   Every published Lemma release is uniquely addressed by four mandatory
+   fields `(scope, name, version, channel)` — where `scope` is a lowercase
+   `singleword` and `name` is a 1- or 2-level dot-separated lowercase
+   `singleword` (`package` or `package.subpackage`) — with zero defaults and
+   zero pre-release or build-metadata version suffixes:
    - **`x` (Architectural Epoch)**: Full paradigm or architectural overhaul
      governed by explicit human authorization (`--epoch`); routine automated
      publishes across `x` fail closed (`0.y.z` carries no special exemption).
@@ -179,24 +181,28 @@ accumulate.
    - **`channel`**: First-class exact-match coordinate atom (`stable`, `rc`,
      `canary`, etc.); the compiler enforces exact equality with zero cross-channel
      ranking or fallback, leaving channel admission policy to repository guards.
-2. **Lockfile-free manifests (`simplex.package/v1`, `simplex.workspace/v1`)**:
-   Package manifests (`simplex.toml`) declare `[library]` and `[dependencies]`
-   using only complete 4-tuple coordinates or `{ workspace = "*" }` workspace
-   references. Fuzzy version ranges (`^`, `~`, `>=`, `*`), missing `channel`
-   fields and any `simplex.lock` file fail closed: because every external edge
+2. **Lockfile-free manifests (`simplex.lemma/v1`, `simplex.workspace/v1`)**:
+   Lemma manifests (`simplex.toml`) declare `[lemma]` (zero `entry` field;
+   directory-is-Lemma) and `[dependencies]` using only complete 4-tuple
+   coordinates, `{ workspace = "*" }`, or `{ workspace = "pkg.sub" }` workspace
+   references, with multi-Lemma workspaces organized under `lemmas/*`. Fuzzy
+   version ranges (`^`, `~`, `>=`, `*`), missing `channel` fields, `[library]`,
+   `entry`, and any `simplex.lock` file fail closed: because every external edge
    names an immutable SHA-256-sealed 4-tuple coordinate, dependency graphs are
-   deterministic without a lockfile. During `seal` and `publish`, `{ workspace = "*" }`
+   deterministic without a lockfile. During `seal` and `publish`, workspace
    entries are mechanically rewritten to each workspace member's exact
    `Coordinate`, refusing unpublished workspace dependencies.
 3. **Deterministic `source.tar` and mechanical `simplex.seal/v1` audit**:
-   Source archives pack the rewritten `simplex.toml`, `.sx` modules and package
-   assets in strict lexicographic path order with normalized metadata (`mtime=0`,
-   `uid=0`, `gid=0`, `mode=0o644`). `seal.toml` records 64-hex SHA-256 digests
-   for `source`, `api` (canonical `pub` surface, invariant to private items and
-   function bodies) and `abi` (canonical `pub` struct, enum, vtable and `pub dylib`
-   footprints) plus locked dependency digests, mechanically auditing `x.y.z`
-   transitions against the channel baseline before upload.
-4. **Create-Only S3 object store and 4-tuple `dylib` isolation**:
+   Source archives pack the rewritten `simplex.toml`, all `.sx` modules under
+   the Lemma directory (zero barrel entry file; directory-wide `pub` surface),
+   and Lemma assets in strict lexicographic path order with normalized metadata
+   (`mtime=0`, `uid=0`, `gid=0`, `mode=0o644`). `seal.toml` records 64-hex
+   SHA-256 digests for `source`, `api` (canonical `pub` surface, invariant to
+   private items and function bodies) and `abi` (canonical `pub` struct, enum,
+   vtable and `pub dylib` footprints) plus locked dependency digests,
+   mechanically auditing `x.y.z` transitions against the channel baseline before
+   upload.
+4. **Create-Only S3 object store and `<16hex>` `dylib` isolation**:
    Pure-Rust `AWS SigV4` (`AWS4-HMAC-SHA256`) publishes exclusively to
    `<scope>/<name>/<x.y.z>/<channel>/{source.tar, seal.toml}` with
    `If-None-Match: "*"` (`source.tar` first, `seal.toml` commit point; zero
@@ -204,10 +210,11 @@ accumulate.
    read-only `GET` without credentials). `Store::fetch` verifies coordinate
    equality and `sha256(source.tar) == seal.source` before populating
    `$SIMPLEX_HOME/cache/<scope>/<name>/<x.y.z>/<channel>/` with zero fallback.
-   Cross-package HIR isolates symbols under `{scope}${name}${major}_{minor}_{patch}${channel}`
-   and compiles `dylib` dependencies from verified source into
-   `sx_{scope}_{name}_{major}_{minor}_{patch}_{channel}` shared libraries so
-   multiple versions or channels coexist in one process without collision.
+   Cross-Lemma HIR derives a 16-hex-char SHA-256 digest (`"simplex.dylib/v1\0"
+   + prefix`) to isolate symbols under `sx$<16hex>$<module>$<item>` and
+   compiles `dylib` dependencies from verified source into `<16hex>.{so,dll,dylib}`
+   shared libraries (zero `lib` prefix) with compile-time hash and output-path
+   collision refusal so multiple versions or channels coexist without collision.
 
 ## Cold-start method
 

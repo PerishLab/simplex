@@ -51,7 +51,7 @@ fn apple() {
         return;
     }
     let baseline = runner::linux();
-    let stream = runner::prepare("darwin-aarch64", "", "libcodec.dylib");
+    let stream = runner::prepare("darwin-aarch64", "", "codec.dylib");
     let remote = runner::apple(&stream);
     assert_eq!(remote, baseline);
 }

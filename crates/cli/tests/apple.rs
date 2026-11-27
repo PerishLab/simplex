@@ -94,6 +94,10 @@ impl Image {
         self.signature(trailing);
     }
 
+    fn holds(&self, needle: &[u8]) -> bool {
+        self.bytes.windows(needle.len()).any(|part| part == needle)
+    }
+
     fn find(&self, kind: u32) -> Option<&Entry> {
         self.commands.iter().find(|entry| entry.kind == kind)
     }
@@ -228,11 +232,16 @@ pub main := () -> i64 {
 ",
     );
     sandbox.compile(&unit, None, true);
-    Image::open(&sandbox.join("libcodec.dylib"), true);
+    let library = Image::open(&sandbox.join("codec.dylib"), true);
+    assert!(!sandbox.join("libcodec.dylib").exists());
+    assert!(library.holds(b"@executable_path/codec.dylib\0"));
 
     let runner = sandbox.join("runner");
     sandbox.compile(&entry, Some(&runner), false);
-    Image::open(&runner, false);
+    let host = Image::open(&runner, false);
+    assert!(host.holds(b"@executable_path/codec.dylib\0"));
+    assert!(!host.holds(b"libcodec.dylib"));
+    assert!(host.holds(b"/usr/lib/libSystem.B.dylib"));
 }
 
 #[test]

@@ -1,5 +1,8 @@
-use simplex_hir::{Expression, Statement, Type, lower};
+use simplex_hir::{Expression, Statement, Type, bridge, lower};
+use simplex_ir::Linkage;
+use std::fs;
 use std::path::Path;
+use tempfile::tempdir;
 
 #[test]
 fn modules() {
@@ -59,9 +62,9 @@ fn shared() {
 fn consumer() {
     let plugin = Path::new("../../cases/dylib/pass/plugin.sx");
     let unit = lower("app", plugin, false).expect("lower plugin");
-    assert_eq!(unit.libraries, vec![String::from("libcodec.so")]);
+    assert_eq!(unit.libraries, vec![String::from("codec.so")]);
     assert!(unit.imports.iter().any(|i| {
-        i.symbol == "sx$app$codec$transcode" && i.library.as_deref() == Some("libcodec.so")
+        i.symbol == "sx$app$codec$transcode" && i.library.as_deref() == Some("codec.so")
     }));
     assert!(unit.tables.iter().any(|t| {
         t.symbol == "sx$vt$app$plugin$Xor$Codec"
@@ -81,4 +84,26 @@ fn foreign() {
         .expect("epoll_wait import");
     assert_eq!(imp.library.as_deref(), Some("libc.so.6"));
     assert_eq!(imp.output, Type::Signed(4));
+}
+
+#[test]
+fn zeroprefix() {
+    let scratch = tempdir().expect("tempdir");
+    fs::write(
+        scratch.path().join("libwrap.sx"),
+        "pub dylib ping := (x: i64) -> i64 {\n    x + 1\n}\n",
+    )
+    .expect("write libwrap");
+    fs::write(
+        scratch.path().join("app.sx"),
+        "libwrap := dylib libwrap\n\npub main := () -> i64 {\n    libwrap.ping(2)\n}\n",
+    )
+    .expect("write app");
+    let unit = lower("app", &scratch.path().join("app.sx"), false).expect("lower app");
+    assert_eq!(unit.libraries, vec![String::from("libwrap.so")]);
+    let module = bridge(&unit);
+    assert!(module.externals.iter().any(|ext| {
+        ext.symbol == "sx$app$libwrap$ping"
+            && ext.linkage == Linkage::Dynamic(String::from("libwrap"))
+    }));
 }

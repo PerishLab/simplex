@@ -15,7 +15,7 @@ fn coord(scope: &str, name: &str, ver: &str, channel: &str) -> Coordinate {
 
 fn stamp(ver: &str) -> Seal {
     Seal {
-        coordinate: coord("perish", "codec", ver, "stable"),
+        coordinate: coord("perish", "codec.json", ver, "stable"),
         source: hex('a'),
         api: hex('b'),
         abi: hex('c'),
@@ -43,7 +43,7 @@ fn contract(exports: &[(&str, &str)], layouts: &[(&str, &str)]) -> Contract {
 #[test]
 fn round() {
     let seal = Seal {
-        coordinate: coord("perish", "codec", "1.2.0", "stable"),
+        coordinate: coord("perish", "codec.json", "1.2.0", "stable"),
         source: hex('1'),
         api: hex('2'),
         abi: hex('3'),
@@ -56,8 +56,8 @@ fn round() {
                 abi: hex('6'),
             },
             Locked {
-                alias: String::from("math"),
-                coordinate: coord("perish", "math", "0.4.1", "stable"),
+                alias: String::from("text"),
+                coordinate: coord("perish", "codec.text", "0.4.1", "stable"),
                 source: hex('7'),
                 api: hex('8'),
                 abi: hex('9'),
@@ -66,7 +66,7 @@ fn round() {
     };
     let rendered = seal.render();
     assert!(rendered.starts_with(&format!("schema = \"{SEAL}\"\n")));
-    let first = rendered.find("alias = \"math\"").unwrap();
+    let first = rendered.find("alias = \"text\"").unwrap();
     let second = rendered.find("alias = \"wire\"").unwrap();
     assert!(first < second);
     let parsed = Seal::parse(&rendered).unwrap();
@@ -75,7 +75,7 @@ fn round() {
     assert_eq!(parsed.api, seal.api);
     assert_eq!(parsed.abi, seal.abi);
     assert_eq!(parsed.dependencies.len(), 2);
-    assert_eq!(parsed.dependencies[0].alias, "math");
+    assert_eq!(parsed.dependencies[0].alias, "text");
     assert_eq!(parsed.dependencies[1].alias, "wire");
     assert_eq!(parsed.render(), rendered);
 }
@@ -113,7 +113,10 @@ fn validation() {
 #[test]
 fn governance() {
     let s100 = stamp("1.0.0");
-    let c100 = contract(&[("bind:add", "fn(i64)->i64")], &[("struct:Pair", "16")]);
+    let c100 = contract(
+        &[("parse::bind:add", "fn(i64)->i64")],
+        &[("parse::struct:Pair", "16")],
+    );
     let r100 = Release {
         seal: &s100,
         contract: &c100,
@@ -122,8 +125,11 @@ fn governance() {
 
     let s101 = stamp("1.0.1");
     let c101 = contract(
-        &[("bind:add", "fn(i64)->i64"), ("bind:sub", "fn(i64)->i64")],
-        &[("struct:Pair", "16")],
+        &[
+            ("parse::bind:add", "fn(i64)->i64"),
+            ("parse::bind:sub", "fn(i64)->i64"),
+        ],
+        &[("parse::struct:Pair", "16")],
     );
     let r101 = Release {
         seal: &s101,
@@ -135,7 +141,10 @@ fn governance() {
     );
 
     let s102 = stamp("1.0.2");
-    let broken = contract(&[("bind:add", "fn(i32)->i32")], &[("struct:Pair", "16")]);
+    let broken = contract(
+        &[("parse::bind:add", "fn(i32)->i32")],
+        &[("parse::struct:Pair", "16")],
+    );
     let bad = audit::verify(
         Some(r101),
         Release {
@@ -145,7 +154,7 @@ fn governance() {
         false,
     );
     match bad {
-        Err(Fault::Breaking(msg)) => assert!(msg.contains("bind:add")),
+        Err(Fault::Breaking(msg)) => assert!(msg.contains("parse::bind:add")),
         other => panic!("expected breaking fault, got {other:?}"),
     }
 
@@ -203,11 +212,11 @@ fn pipeline() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(
         dir.path().join("simplex.toml"),
-        "schema = \"simplex.package/v1\"\n\n[library]\nscope = \"perish\"\nname = \"codec\"\nversion = \"0.1.0\"\nchannel = \"stable\"\n",
+        "schema = \"simplex.lemma/v1\"\n\n[lemma]\nscope = \"perish\"\nname = \"codec.json\"\nversion = \"0.1.0\"\nchannel = \"stable\"\n",
     )
     .unwrap();
     fs::write(
-        dir.path().join("codec.sx"),
+        dir.path().join("parse.sx"),
         concat!(
             "pub limit := 64\n\n",
             "pub Word := u64\n\n",
@@ -218,12 +227,12 @@ fn pipeline() {
     let manifest = Manifest::load(dir.path()).unwrap();
     let (_, source) = archive::pack(dir.path(), &manifest).unwrap();
     let surface = surface::extract(dir.path(), &manifest).unwrap();
-    assert!(surface.exports.contains_key("bind:limit"));
-    assert!(surface.exports.contains_key("alias:Word"));
-    assert!(surface.exports.contains_key("extern:puts"));
-    assert!(surface.layouts.contains_key("dylib:puts"));
+    assert!(surface.exports.contains_key("parse::bind:limit"));
+    assert!(surface.exports.contains_key("parse::alias:Word"));
+    assert!(surface.exports.contains_key("parse::extern:puts"));
+    assert!(surface.layouts.contains_key("parse::dylib:puts"));
     let seal = Seal {
-        coordinate: manifest.library,
+        coordinate: manifest.lemma,
         source,
         api: surface.api.clone(),
         abi: surface.abi.clone(),

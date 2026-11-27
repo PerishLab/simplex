@@ -1,5 +1,6 @@
 use super::support::{asset, check, node, write};
-use simplex_hir::{Graph, build};
+use simplex_hir::{Graph, Mangle, build};
+use simplex_package::Coordinate;
 use std::collections::BTreeMap;
 use tempfile::tempdir;
 
@@ -37,9 +38,9 @@ fn staticlink() {
     write(&appdir, "util.sx", "pub bias := () -> i64 {\n    100\n}\n");
     write(
         &appdir,
-        "app.sx",
+        "main.sx",
         concat!(
-            "core := import core\n",
+            "core := import core.core\n",
             "util := import util\n\n",
             "local := embed(\"assets/banner.bin\")\n\n",
             "pub main := async () -> i64 {\n",
@@ -56,23 +57,22 @@ fn staticlink() {
             "}\n",
         ),
     );
-    let corepkg = node("perish/core/1.2.3/stable", &coredir, "core.sx", &[]);
+    let corecoord = Coordinate::parse("perish/core/1.2.3/stable").unwrap();
+    let appcoord = Coordinate::parse("perish/app/0.1.0/stable").unwrap();
+    let corepkg = node("perish/core/1.2.3/stable", &coredir, &[]);
     let root = node(
         "perish/app/0.1.0/stable",
         &appdir,
-        "app.sx",
         &[("core", "perish/core/1.2.3/stable")],
     );
     let mut packages = BTreeMap::new();
     packages.insert(corepkg.coordinate.clone(), corepkg);
     let plan = build(&Graph { root, packages }, false).expect("build static");
-    assert_eq!(plan.namespace, "perish$app$0_1_0$stable");
+    assert_eq!(plan.namespace, appcoord.namespace());
     assert_eq!(plan.stem, "app");
     assert!(plan.dynamics.is_empty());
-    assert_eq!(
-        plan.module.entry.as_deref(),
-        Some("sx$perish$app$0_1_0$stable$app$main")
-    );
+    let expected = Mangle::symbol(&appcoord.namespace(), "main", "main");
+    assert_eq!(plan.module.entry.as_deref(), Some(expected.as_str()));
     assert!(plan.module.assets.iter().any(|a| a.bytes == b"core-asset"));
     assert!(plan.module.assets.iter().any(|a| a.bytes == b"app-asset!"));
     let symbols: Vec<&str> = plan
@@ -81,9 +81,11 @@ fn staticlink() {
         .iter()
         .map(|f| f.symbol.as_str())
         .collect();
-    assert!(symbols.contains(&"sx$perish$core$1_2_3$stable$core$unpack$i64"));
-    assert!(symbols.contains(&"sx$perish$core$1_2_3$stable$core$stride$8"));
-    assert!(symbols.contains(&"sx$perish$core$1_2_3$stable$util$bias"));
-    assert!(symbols.contains(&"sx$perish$app$0_1_0$stable$util$bias"));
+    let corens = corecoord.namespace();
+    let appns = appcoord.namespace();
+    assert!(symbols.contains(&Mangle::symbol(&corens, "core", "unpack$i64").as_str()));
+    assert!(symbols.contains(&Mangle::symbol(&corens, "core", "stride$8").as_str()));
+    assert!(symbols.contains(&Mangle::symbol(&corens, "util", "bias").as_str()));
+    assert!(symbols.contains(&Mangle::symbol(&appns, "util", "bias").as_str()));
     check(&plan.stem, &plan.module, false);
 }

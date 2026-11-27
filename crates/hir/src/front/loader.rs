@@ -3,7 +3,7 @@ use simplex::tree::{Import, Program, Statement};
 use simplex::{Code, Finding};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 #[derive(Clone, Debug)]
 pub struct Meta {
@@ -104,7 +104,7 @@ impl Walk {
                 true => {
                     let parsed = parse(&self.ns, &self.root, &target)?;
                     let name = parsed.key.clone();
-                    let library = format!("lib{name}.so");
+                    let library = format!("{name}.so");
                     current
                         .imports
                         .insert(imp.name.clone(), (name.clone(), true));
@@ -186,9 +186,113 @@ pub fn stemname(path: &Path) -> String {
         .to_owned()
 }
 
+pub struct Folder<'a>(pub &'a Path);
+
+impl<'a> Folder<'a> {
+    pub fn module(&self, path: &Path) -> String {
+        let base = canonicalize(self.0);
+        let Ok(rel) = path.strip_prefix(&base) else {
+            return stemname(path);
+        };
+        let trimmed = rel.with_extension("");
+        let parts: Vec<&str> = trimmed
+            .components()
+            .filter_map(|comp| match comp {
+                Component::Normal(part) => part.to_str(),
+                _ => None,
+            })
+            .collect();
+        match parts.is_empty() {
+            true => stemname(path),
+            false => parts.join("$"),
+        }
+    }
+
+    pub fn discover(&self) -> Result<Vec<PathBuf>, Fault> {
+        if !self.0.is_dir() {
+            return Err(Fault::Io(self.0.display().to_string()));
+        }
+        let mut files = Vec::new();
+        walkdir(self.0, &mut files)?;
+        files.sort();
+        if files.is_empty() {
+            return Err(Fault::Io(self.0.display().to_string()));
+        }
+        Ok(files)
+    }
+
+    pub fn resolve(&self, subpath: &[String]) -> PathBuf {
+        let mut rel = PathBuf::new();
+        for seg in subpath {
+            rel.push(seg);
+        }
+        rel.set_extension("sx");
+        self.0.join(rel)
+    }
+
+    pub fn shadowed<T>(&self, deps: &BTreeMap<String, T>) -> Result<bool, Fault> {
+        if deps.is_empty() {
+            return Ok(false);
+        }
+        let entries = fs::read_dir(self.0).map_err(|_| Fault::Io(self.0.display().to_string()))?;
+        for item in entries {
+            let Ok(entry) = item else {
+                continue;
+            };
+            let name = entry.file_name();
+            let raw = name.to_string_lossy();
+            if raw.starts_with('.') || raw == "target" {
+                continue;
+            }
+            let path = entry.path();
+            if path.is_dir() && deps.contains_key(raw.as_ref()) {
+                return Ok(true);
+            }
+            if path.is_file()
+                && path.extension().and_then(|ext| ext.to_str()) == Some("sx")
+                && let Some(stem) = path.file_stem().and_then(|part| part.to_str())
+                && deps.contains_key(stem)
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+}
+
 fn anchor(entry: &Path) -> PathBuf {
     entry
         .parent()
         .unwrap_or_else(|| Path::new("."))
         .to_path_buf()
+}
+
+fn walkdir(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), Fault> {
+    let entries = fs::read_dir(dir).map_err(|_| Fault::Io(dir.display().to_string()))?;
+    for item in entries {
+        let Ok(entry) = item else {
+            continue;
+        };
+        let name = entry.file_name();
+        let raw = name.to_string_lossy();
+        if raw.starts_with('.') {
+            continue;
+        }
+        let path = entry.path();
+        if path.is_dir() {
+            if raw == "target" || path.join("simplex.toml").exists() {
+                continue;
+            }
+            walkdir(&path, files)?;
+            continue;
+        }
+        if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("sx") {
+            files.push(path);
+        }
+    }
+    Ok(())
+}
+
+pub fn canonicalize(path: &Path) -> PathBuf {
+    fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }

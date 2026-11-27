@@ -1,5 +1,5 @@
 use simplex_package::{
-    Coordinate, Dependency, Fault, Manifest, PACKAGE, Version, WORKSPACE, Workspace,
+    Coordinate, Dependency, Fault, LEMMA, Manifest, Version, WORKSPACE, Workspace,
 };
 use std::collections::BTreeMap;
 use std::fs;
@@ -9,54 +9,58 @@ use tempfile::tempdir;
 fn seed(folder: &Path, name: &str, extra: &str) {
     fs::create_dir_all(folder).expect("mkdir");
     let body = format!(
-        "schema = \"{PACKAGE}\"\n\n[library]\nscope = \"perish\"\nname = \"{name}\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n{extra}"
+        "schema = \"{LEMMA}\"\n\n[lemma]\nscope = \"perish\"\nname = \"{name}\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n{extra}"
     );
     fs::write(folder.join("simplex.toml"), body).expect("write manifest");
-    fs::write(folder.join(format!("{name}.sx")), "pub answer := 42\n").expect("write sx");
+    fs::write(folder.join("parse.sx"), "pub answer := 42\n").expect("write sx");
 }
 
 #[test]
-fn package() {
+fn lemma() {
     let text = r#"
-schema = "simplex.package/v1"
+schema = "simplex.lemma/v1"
 
-[library]
+[lemma]
 scope = "perish"
-name = "codec"
+name = "codec.json"
 version = "1.2.0"
 channel = "stable"
-entry = "src/codec.sx"
 
 [dependencies]
 math = { scope = "perish", name = "math", version = "0.4.1", channel = "stable" }
+text = { workspace = "codec.text" }
 wire = { workspace = "*" }
 "#;
     let parsed = Manifest::parse(text).expect("valid manifest");
-    assert_eq!(parsed.library.to_string(), "perish/codec/1.2.0/stable");
-    assert_eq!(parsed.entry, "src/codec.sx");
-    assert_eq!(parsed.dependencies.len(), 2);
+    assert_eq!(parsed.lemma.to_string(), "perish/codec.json/1.2.0/stable");
+    assert_eq!(parsed.lemma.leaf(), "json");
+    assert_eq!(parsed.dependencies.len(), 3);
     let math = Coordinate::parse("perish/math/0.4.1/stable").expect("math coord");
     assert_eq!(
         parsed.dependencies.get("math"),
         Some(&Dependency::Exact(math))
     );
     assert_eq!(
+        parsed.dependencies.get("text"),
+        Some(&Dependency::Workspace(Some(String::from("codec.text"))))
+    );
+    assert_eq!(
         parsed.dependencies.get("wire"),
-        Some(&Dependency::Workspace)
+        Some(&Dependency::Workspace(None))
     );
     let rendered = parsed.render();
-    assert!(rendered.starts_with(&format!("schema = \"{PACKAGE}\"\n")));
+    assert!(rendered.starts_with(&format!("schema = \"{LEMMA}\"\n")));
+    assert!(!rendered.contains("entry"));
     assert_eq!(Manifest::parse(&rendered).expect("roundtrip"), parsed);
 }
 
 #[test]
 fn defaults() {
-    let text = "schema = \"simplex.package/v1\"\n[library]\nscope = \"perish\"\nname = \"wire\"\nversion = \"0.1.0\"\nchannel = \"canary\"\n";
+    let text = "schema = \"simplex.lemma/v1\"\n[lemma]\nscope = \"perish\"\nname = \"wire\"\nversion = \"0.1.0\"\nchannel = \"canary\"\n";
     let parsed = Manifest::parse(text).expect("minimal manifest");
-    assert_eq!(parsed.entry, "wire.sx");
     assert!(parsed.dependencies.is_empty());
     assert_eq!(
-        parsed.library.version,
+        parsed.lemma.version,
         Version {
             major: 0,
             minor: 1,
@@ -67,60 +71,72 @@ fn defaults() {
 }
 
 #[test]
-fn schema() {
+fn rejections() {
+    let legacy = "schema = \"simplex.package/v1\"\n[library]\nscope = \"perish\"\nname = \"wire\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n";
+    assert!(matches!(Manifest::parse(legacy), Err(Fault::Manifest(_))));
+    let table = "schema = \"simplex.lemma/v1\"\n[library]\nscope = \"perish\"\nname = \"wire\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n";
+    assert!(matches!(Manifest::parse(table), Err(Fault::Manifest(_))));
+    let entry = "schema = \"simplex.lemma/v1\"\n[lemma]\nscope = \"perish\"\nname = \"wire\"\nversion = \"1.0.0\"\nchannel = \"stable\"\nentry = \"wire.sx\"\n";
+    assert!(matches!(Manifest::parse(entry), Err(Fault::Manifest(_))));
+    let topentry = "schema = \"simplex.lemma/v1\"\nentry = \"wire.sx\"\n[lemma]\nscope = \"perish\"\nname = \"wire\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n";
+    assert!(matches!(Manifest::parse(topentry), Err(Fault::Manifest(_))));
     let wrong = "schema = \"simplex.workspace/v1\"\nmembers = [\"wire\"]\n";
     assert!(matches!(Manifest::parse(wrong), Err(Fault::Manifest(_))));
-    let missing = "[library]\nscope = \"perish\"\nname = \"wire\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n";
+    let missing =
+        "[lemma]\nscope = \"perish\"\nname = \"wire\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n";
     assert!(matches!(Manifest::parse(missing), Err(Fault::Manifest(_))));
-    let extra = "schema = \"simplex.package/v1\"\nextra = true\n[library]\nscope = \"perish\"\nname = \"wire\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n";
+    let extra = "schema = \"simplex.lemma/v1\"\nextra = true\n[lemma]\nscope = \"perish\"\nname = \"wire\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n";
     assert!(matches!(Manifest::parse(extra), Err(Fault::Manifest(_))));
-}
-
-#[test]
-fn entries() {
-    for bad in [
-        "codec.rs",
-        ".sx",
-        "/codec.sx",
-        "../codec.sx",
-        "src/../codec.sx",
-        "src//codec.sx",
-        "./codec.sx",
-        "codec\\main.sx",
-        "mod.sx",
-        "index.sx",
-        "lib.sx",
-        "src/mod.sx",
-        "src/index.sx",
-        "src/lib.sx",
-    ] {
+    for bad in ["a.b.c", ".json", "codec.", "a_b", "Codec"] {
         let doc = format!(
-            "schema = \"simplex.package/v1\"\n[library]\nscope = \"perish\"\nname = \"codec\"\nversion = \"1.0.0\"\nchannel = \"stable\"\nentry = \"{bad}\"\n"
+            "schema = \"simplex.lemma/v1\"\n[lemma]\nscope = \"perish\"\nname = \"{bad}\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n"
         );
-        assert!(Manifest::parse(&doc).is_err(), "accepted {bad}");
+        assert!(
+            matches!(Manifest::parse(&doc), Err(Fault::Coordinate(_))),
+            "accepted {bad}"
+        );
     }
-    let barrel = "schema = \"simplex.package/v1\"\n[library]\nscope = \"perish\"\nname = \"lib\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n";
-    assert!(matches!(Manifest::parse(barrel), Err(Fault::Manifest(_))));
 }
 
 #[test]
 fn dependencies() {
-    let head = "schema = \"simplex.package/v1\"\n[library]\nscope = \"perish\"\nname = \"app\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n[dependencies]\n";
+    let head = "schema = \"simplex.lemma/v1\"\n[lemma]\nscope = \"perish\"\nname = \"app\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n[dependencies]\n";
     for tail in [
-        "math = \"1.0.0\"\n",
         "math = { scope = \"perish\", name = \"math\", version = \"^1.0.0\", channel = \"stable\" }\n",
         "math = { scope = \"perish\", name = \"math\", version = \"~1.0.0\", channel = \"stable\" }\n",
         "math = { scope = \"perish\", name = \"math\", version = \">=1.0.0\", channel = \"stable\" }\n",
         "math = { scope = \"perish\", name = \"math\", version = \"*\", channel = \"stable\" }\n",
+    ] {
+        assert!(
+            matches!(
+                Manifest::parse(&format!("{head}{tail}")),
+                Err(Fault::Version(_))
+            ),
+            "expected version fault on {tail}"
+        );
+    }
+    for tail in [
+        "math = \"1.0.0\"\n",
         "math = { scope = \"perish\", name = \"math\", version = \"1.0.0\" }\n",
         "math = { scope = \"perish\", name = \"math\", version = \"1.0.0\", channel = \"stable\", optional = true }\n",
         "math = { workspace = true }\n",
         "math = { workspace = \"^1.0\" }\n",
+        "math = { workspace = \"1.0.0\" }\n",
+        "math = { workspace = \"\" }\n",
+        "math = { workspace = \"a.b.c\" }\n",
+        "math = { workspace = \".json\" }\n",
+        "math = { workspace = \"codec.\" }\n",
         "math = { workspace = \"*\", channel = \"stable\" }\n",
         "my_math = { workspace = \"*\" }\n",
         "Math = { workspace = \"*\" }\n",
     ] {
-        assert!(Manifest::parse(&format!("{head}{tail}")).is_err());
+        assert!(
+            matches!(
+                Manifest::parse(&format!("{head}{tail}")),
+                Err(Fault::Manifest(_))
+            ),
+            "expected manifest fault on {tail}"
+        );
     }
 }
 
@@ -131,38 +147,47 @@ fn discovery() {
     fs::create_dir_all(&root).expect("repo");
     fs::write(
         root.join("simplex.toml"),
-        format!("schema = \"{WORKSPACE}\"\nmembers = [\"wire\", \"crates/codec\"]\n"),
+        format!(
+            "schema = \"{WORKSPACE}\"\nmembers = [\"lemmas/wire\", \"lemmas/codec/json\", \"lemmas/app\"]\n"
+        ),
     )
     .expect("workspace toml");
-    seed(&root.join("wire"), "wire", "");
+    seed(&root.join("lemmas/wire"), "wire", "");
+    seed(&root.join("lemmas/codec/json"), "codec.json", "");
     seed(
-        &root.join("crates/codec"),
-        "codec",
-        "\n[dependencies]\nwire = { workspace = \"*\" }\n",
+        &root.join("lemmas/app"),
+        "app",
+        "\n[dependencies]\nwire = { workspace = \"*\" }\njson = { workspace = \"codec.json\" }\n",
     );
 
     let loaded = Workspace::load(&root).expect("workspace load");
     assert_eq!(loaded.root, root);
-    assert_eq!(loaded.members.len(), 2);
+    assert_eq!(loaded.members.len(), 3);
     assert_eq!(
-        Workspace::locate(&root.join("crates/codec")).expect("dir"),
+        Workspace::locate(&root.join("lemmas/codec/json")).expect("dir"),
         Some(loaded.clone())
     );
     assert_eq!(
-        Workspace::locate(&root.join("crates/codec/codec.sx")).expect("file"),
+        Workspace::locate(&root.join("lemmas/codec/json/parse.sx")).expect("file"),
         Some(loaded.clone())
     );
     let outside = tempdir().expect("outside");
     assert_eq!(Workspace::locate(outside.path()).expect("outside"), None);
 
     let coords = loaded.coordinates();
-    let expected = Coordinate::parse("perish/wire/1.0.0/stable").expect("wire");
-    assert_eq!(coords.get("wire"), Some(&expected));
-    let (_, codec) = loaded.members.get("codec").expect("codec member");
-    let rewritten = codec.rewrite(&coords).expect("rewrite");
+    let wire = Coordinate::parse("perish/wire/1.0.0/stable").expect("wire");
+    let json = Coordinate::parse("perish/codec.json/1.0.0/stable").expect("json");
+    assert_eq!(coords.get("wire"), Some(&wire));
+    assert_eq!(coords.get("codec.json"), Some(&json));
+    let (_, app) = loaded.members.get("app").expect("app member");
+    let rewritten = app.rewrite(&coords).expect("rewrite");
     assert_eq!(
         rewritten.dependencies.get("wire"),
-        Some(&Dependency::Exact(expected))
+        Some(&Dependency::Exact(wire))
+    );
+    assert_eq!(
+        rewritten.dependencies.get("json"),
+        Some(&Dependency::Exact(json))
     );
 }
 
@@ -227,11 +252,19 @@ fn failures() {
         Err(Fault::Workspace(_))
     ));
     let orphan = Manifest::parse(
-        "schema = \"simplex.package/v1\"\n[library]\nscope = \"perish\"\nname = \"app\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n[dependencies]\nmissing = { workspace = \"*\" }\n",
+        "schema = \"simplex.lemma/v1\"\n[lemma]\nscope = \"perish\"\nname = \"app\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n[dependencies]\nmissing = { workspace = \"*\" }\n",
     )
     .expect("orphan");
     assert!(matches!(
         orphan.rewrite(&BTreeMap::new()),
+        Err(Fault::Workspace(_))
+    ));
+    let named = Manifest::parse(
+        "schema = \"simplex.lemma/v1\"\n[lemma]\nscope = \"perish\"\nname = \"app\"\nversion = \"1.0.0\"\nchannel = \"stable\"\n[dependencies]\njson = { workspace = \"codec.json\" }\n",
+    )
+    .expect("named");
+    assert!(matches!(
+        named.rewrite(&BTreeMap::new()),
         Err(Fault::Workspace(_))
     ));
 }
