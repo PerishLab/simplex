@@ -7,14 +7,16 @@ this file keeps repository-specific charter and constraints without copying it.
 
 ## Standing
 
-`simplex` is a **candidate bailiwick** advancing through `Cycle 3` (`Package`,
-`Project #13 · Simplex · Native`): `crates/package` (4-tuple `Coordinate`,
-lockfile-free manifests, `simplex.seal/v1` `x.y.z` audit, Create-Only S3 SigV4
-store) and `crates/hir::build` (cross-package monomorphized `import` and 4-tuple
-`sx_<scope>_<name>_<x>_<y>_<z>_<channel>` `dylib` compilation plans) are live;
-CLI `seal`/`publish`/package-mode `build` wiring and end-to-end S3 black-box
-trials land in `P4`, and a released Depot `SKILL.md` promise remains `unknown`
-until formal release.
+`simplex` is a **candidate bailiwick** with completed 9-domain cold-start
+specification, `Cycle 2` (`Substrate`) target-neutral zero-stack `Fiber<T>` +
+tri-OS native backends, and `Cycle 3` (`Package`, `Project #13 · Simplex · Native`):
+the 7-crate compiler and package system (`Coordinate` 4-tuple library identity,
+lockfile-free `simplex.package/v1` & `simplex.workspace/v1` manifests,
+mechanical `simplex.seal/v1` 3-tier `x.y.z` API/ABI gate, Create-Only S3 SigV4
+distribution, cross-package `import` & 4-tuple `dylib` compilation, and
+`simplex {check, format, build, seal, publish}`) are live and hardware-verified
+across Linux, Windows 11, and Apple Silicon (`M4`); a released Depot `SKILL.md`
+promise remains `unknown` until formal release.
 
 ## Explored question
 
@@ -29,7 +31,7 @@ discipline against host-language escape hatches.
 
 ## Responsibility
 
-Simplex owns the `.sx` general-purpose language specification, golden `pass / reject` specimen suites (`cases/*`), grammar, type and borrow checker, `comptime`/`meta` evaluator, 4-tuple library manifest/seal/audit and Create-Only S3 SigV4 store (`simplex-package`), cross-package monomorphized `HIR -> LIR` and zero-stack `Fiber<T>` lowering (`simplex-hir`, `simplex-ir`), non-LLVM `x86_64`/`aarch64` native code generator (`simplex-target`), and zero-linker `ELF64`/`PE32+`/`Mach-O 64` binary emitter (`simplex-object`).
+Simplex owns the `.sx` general-purpose language specification, golden `pass / reject` specimen suites (`cases/*`), grammar, type and borrow checker, `comptime`/`meta` evaluator, 4-tuple library manifest/seal/audit and Create-Only S3 SigV4 store (`simplex-package`), standalone and cross-package `HIR -> LIR` and zero-stack `Fiber<T>` lowering (`simplex-hir`, `simplex-ir`), non-LLVM `x86_64`/`aarch64` native code generator (`simplex-target`), and zero-linker `ELF64`/`PE32+`/`Mach-O 64` binary emitter (`simplex-object`).
 
 ## Workspace topology
 
@@ -58,9 +60,10 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
   Loop-aware linear-scan register allocator (`machine`, `allocate`), `x86_64`/SSE2
   (`intel`, `linux` SysV AMD64, `windows` Microsoft x64) and `aarch64` (`arm`,
   `apple` AAPCS64) native machine-code backends.
-- `crates/cli` (`simplex-cli`): `simplex {check, format, build [--target] [--dylib] [-o]}`
-  with `unlink`-before-write atomic output replacement and tri-OS offline +
-  `SIMPLEX_REMOTE` real-hardware black-box process trials (`crates/cli/tests/`).
+- `crates/cli` (`simplex-cli`): `simplex {check, format, build, seal, publish}`
+  supporting standalone and package/workspace builds, S3 Create-Only publishing,
+  `unlink`-before-write atomic output replacement, and end-to-end S3 + tri-OS
+  `SIMPLEX_REMOTE` real-hardware black-box trials (`crates/cli/tests/`).
 
 ## Core objects
 
@@ -71,8 +74,9 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
 - **Suite**: One orthogonal domain directory (`cases/<domain>`) pairing pure
   `pass/*.sx` and `reject/*.sx` specimens with a `suite.toml` refusal manifest.
 - **Coordinate**: One mandatory 4-tuple library identity `(scope, name, x.y.z, channel)`
-  addressing immutable `<scope>/<name>/<x.y.z>/<channel>/{source.tar, seal.toml}` objects
-  and collision-free `{scope}${name}${major}_{minor}_{patch}${channel}` HIR namespaces.
+  addressing immutable `<scope>/<name>/<x.y.z>/<channel>/{source.tar, seal.toml}` objects,
+  `{scope}${name}${major}_{minor}_{patch}${channel}` HIR namespaces, and
+  `sx_{scope}_{name}_{major}_{minor}_{patch}_{channel}` dynamic libraries.
 - **Module**: One target-neutral `simplex-ir` Block-Arg SSA compilation unit
   lowered to pure synchronous routines after `prepare`.
 - **Artifact**: One unified `simplex-object` code, data, symbol, import and
@@ -87,12 +91,12 @@ The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `obj
   listed with its exact `Code` in that domain's `suite.toml`, and unlisted or
   missing files fail closed.
 - **Lockfile-free Create-Only S3 & mechanical `x.y.z` law**: `simplex.toml`
-  admits only complete 4-tuple coordinates or `{ workspace = "*" }`, forbids
-  `simplex.lock`, gates `x.y.z` transitions via `simplex.seal/v1`, enforces
-  zero-fallback SHA-256 verification and `If-None-Match: "*"` immutability on S3,
-  and isolates multi-version/multi-channel packages across static `import` and
-  `dylib` boundaries without collision.
-- **Frozen tri-OS binary & zero-stack `Fiber<T>` contract**: `simplex build` emits zero-SDK `linux-x86_64` (`ELF64` `.so`), `windows-x86_64` (`PE32+` `.exe`/`.dll`), and `darwin-aarch64` (`16 KiB`-aligned signed `Mach-O 64` `lib*.dylib` with `LC_UUID` and `LC_DYLD_CHAINED_FIXUPS`), passing byte-identical `N1–N4` and `dylib` hot-swap black-box trials across Linux, Windows 11, and Apple Silicon.
+  admits only complete 4-tuple coordinates or `{ workspace = "*" }` (mechanically
+  rewritten and S3-verified on `publish`), forbids `simplex.lock`, gates `x`
+  (`--epoch`), `y` (breaking `pub` API/ABI) and `z` (compatible) transitions via
+  `simplex.seal/v1`, writes S3 objects strictly with `If-None-Match: "*"`, and
+  fetches dependencies with SHA-256 verification and zero fallback.
+- **Frozen tri-OS binary & zero-stack `Fiber<T>` contract**: `simplex build` emits zero-SDK `linux-x86_64` (`ELF64` `.so`), `windows-x86_64` (`PE32+` `.exe`/`.dll`), and `darwin-aarch64` (`16 KiB`-aligned signed `Mach-O 64` `lib*.dylib` with `LC_UUID` and `LC_DYLD_CHAINED_FIXUPS`), passing byte-identical `N1–N4`, cross-package S3, and `dylib` hot-swap black-box trials across Linux, Windows 11, and Apple Silicon.
 - **Orthogonal systems-language scope**: Simplex benchmarks directly against
   C++, Rust and Zig as a systems-grade general-purpose programming language; it
   does not solve markup, layout, styling or other specialized domain-specific
