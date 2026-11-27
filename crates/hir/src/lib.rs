@@ -1,11 +1,13 @@
 pub mod layout;
 pub mod tree;
 
+mod bridge;
 mod eval;
 mod flow;
 mod front;
 mod lower;
 
+pub use bridge::bridge;
 pub use layout::{Arm, Catalog, Field, Footprint, Layout, Mangle, Passing, Tagged, Type};
 pub use tree::{Asset, Case, Expression, Import, Routine, Statement, Table, Unit};
 
@@ -33,4 +35,9 @@ impl std::error::Error for Fault {}
 pub fn lower(namespace: &str, entry: &Path, shared: bool) -> Result<Unit, Fault> {
     let bundle = front::loader::load(entry)?;
     lower::engine::compile(namespace, &bundle, shared)
+}
+
+pub fn translate(namespace: &str, entry: &Path, shared: bool) -> Result<simplex_ir::Module, Fault> {
+    let unit = lower(namespace, entry, shared)?;
+    Ok(bridge(&unit))
 }

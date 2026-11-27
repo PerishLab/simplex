@@ -1,4 +1,8 @@
+mod fiber;
+mod kind;
 mod model;
+mod simplify;
+mod verify;
 
 pub use model::*;
 use std::fmt;
@@ -81,16 +85,16 @@ impl fmt::Display for Fault {
 impl std::error::Error for Fault {}
 
 pub fn verify(module: &Module) -> Result<(), Fault> {
-    let _ = module;
-    Ok(())
+    verify::check(module)
 }
 
 pub fn simplify(module: &mut Module) {
-    let _ = module;
+    simplify::run(module);
 }
 
 pub fn prepare(module: &mut Module) -> Result<(), Fault> {
-    verify(module)?;
-    simplify(module);
-    verify(module)
+    verify::check(module)?;
+    fiber::lower(module)?;
+    simplify::run(module);
+    verify::check(module)
 }
