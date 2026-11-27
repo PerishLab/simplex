@@ -5,6 +5,7 @@ members = [
     "crates/ir",
     "crates/lib",
     "crates/object",
+    "crates/package",
     "crates/target",
 ]
 resolver = "3"

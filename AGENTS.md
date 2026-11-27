@@ -29,17 +29,21 @@ Simplex owns the `.sx` general-purpose language specification, golden `pass / re
 
 ## Workspace topology
 
-The Rust workspace forms a strict zero-cycle DAG across six crates (`ir`, `object`, and `target` have zero dependency on `.sx` syntax):
+The Rust workspace forms a strict zero-cycle DAG across seven crates (`ir`, `object`, and `target` have zero dependency on `.sx` syntax):
 
 - `crates/lib` (`simplex`): Zero-backtracking lexer, parser, canonical
   formatter, local semantic/borrow/`comptime`/`dylib`/`meta` checker and 9-domain
   golden verifier (`38 pass, 140 reject`).
+- `crates/package` (`simplex-package`, depends on `simplex`): Cycle 3 frozen
+  4-tuple `Coordinate` / `Version` identity and public contract spine for
+  `Manifest`, `Workspace`, `archive`, `Contract`, `Seal`, `audit`, `signing` and
+  `Store`.
 - `crates/ir` (`simplex-ir`, zero dependencies): Target-neutral Block-Arg SSA
   `Module`, $O(N)$ `verify`, `simplify`, and zero-stack `Fiber<T>` continuation
   frame lowerer (`prepare`).
-- `crates/hir` (`simplex-hir`, depends on `simplex`, `simplex-ir`): Multi-module
-  monomorphized Typed HIR lowerer and target-neutral `LIR` bridge (`translate`,
-  `bridge`).
+- `crates/hir` (`simplex-hir`, depends on `simplex`, `simplex-ir`,
+  `simplex-package`): Multi-module monomorphized Typed HIR lowerer and
+  target-neutral `LIR` bridge (`translate`, `bridge`).
 - `crates/object` (`simplex-object`, zero dependencies): Pure-Rust unified
   `ELF64` / `PE32+` / SHA-256 signed `Mach-O 64` `Artifact` emitter (`emit`).
 - `crates/target` (`simplex-target`, depends on `simplex-ir`, `simplex-object`):

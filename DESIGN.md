@@ -161,6 +161,54 @@ accumulate.
      (`@executable_path/lib<stem>.dylib`), `/usr/lib/libSystem.B.dylib` and
      built-in SHA-256 `CodeDirectory` (`LC_CODE_SIGNATURE`).
 
+## Library identity, mechanical seal and S3 distribution
+
+1. **Four-tuple library identity (`Coordinate`) and three-tier `x.y.z` law**:
+   Every published library release is uniquely addressed by four mandatory
+   lowercase `singleword` / unsigned-integer fields `(scope, name, version, channel)`
+   with zero defaults and zero pre-release or build-metadata version suffixes:
+   - **`x` (Architectural Epoch)**: Full paradigm or architectural overhaul
+     governed by explicit human authorization (`--epoch`); routine automated
+     publishes across `x` fail closed (`0.y.z` carries no special exemption).
+   - **`y` (Breaking)**: Any removal or modification of an existing `pub`
+     signature, `pub` struct field offset/size/alignment, `pub` enum discriminant
+     or variant payload layout, or `pub` interface vtable slot order.
+   - **`z` (Compatible)**: Any evolution that preserves 100% of prior `pub`
+     declarations and `pub` ABI layouts, covering both private implementation
+     edits and purely additive `pub` exports.
+   - **`channel`**: First-class exact-match coordinate atom (`stable`, `rc`,
+     `canary`, etc.); the compiler enforces exact equality with zero cross-channel
+     ranking or fallback, leaving channel admission policy to repository guards.
+2. **Lockfile-free manifests (`simplex.package/v1`, `simplex.workspace/v1`)**:
+   Package manifests (`simplex.toml`) declare `[library]` and `[dependencies]`
+   using only complete 4-tuple coordinates or `{ workspace = "*" }` workspace
+   references. Fuzzy version ranges (`^`, `~`, `>=`, `*`), missing `channel`
+   fields and any `simplex.lock` file fail closed: because every external edge
+   names an immutable SHA-256-sealed 4-tuple coordinate, dependency graphs are
+   deterministic without a lockfile. During `seal` and `publish`, `{ workspace = "*" }`
+   entries are mechanically rewritten to each workspace member's exact
+   `Coordinate`, refusing unpublished workspace dependencies.
+3. **Deterministic `source.tar` and mechanical `simplex.seal/v1` audit**:
+   Source archives pack the rewritten `simplex.toml`, `.sx` modules and package
+   assets in strict lexicographic path order with normalized metadata (`mtime=0`,
+   `uid=0`, `gid=0`, `mode=0o644`). `seal.toml` records 64-hex SHA-256 digests
+   for `source`, `api` (canonical `pub` surface, invariant to private items and
+   function bodies) and `abi` (canonical `pub` struct, enum, vtable and `pub dylib`
+   footprints) plus locked dependency digests, mechanically auditing `x.y.z`
+   transitions against the channel baseline before upload.
+4. **Create-Only S3 object store and 4-tuple `dylib` isolation**:
+   Pure-Rust `AWS SigV4` (`AWS4-HMAC-SHA256`) publishes exclusively to
+   `<scope>/<name>/<x.y.z>/<channel>/{source.tar, seal.toml}` with
+   `If-None-Match: "*"` (`source.tar` first, `seal.toml` commit point; zero
+   prebuilt binaries and zero compiler-held credentials, accepting public
+   read-only `GET` without credentials). `Store::fetch` verifies coordinate
+   equality and `sha256(source.tar) == seal.source` before populating
+   `$SIMPLEX_HOME/cache/<scope>/<name>/<x.y.z>/<channel>/` with zero fallback.
+   Cross-package HIR isolates symbols under `{scope}${name}${major}_{minor}_{patch}${channel}`
+   and compiles `dylib` dependencies from verified source into
+   `sx_{scope}_{name}_{major}_{minor}_{patch}_{channel}` shared libraries so
+   multiple versions or channels coexist in one process without collision.
+
 ## Cold-start method
 
 Simplex's syntax and core semantics are locked in through nine orthogonal
